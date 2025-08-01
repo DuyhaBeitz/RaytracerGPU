@@ -10,7 +10,7 @@ uniform vec2 iResolution;
 
 // Camera
 float vfov    = 90;            // Vertical view angle (field of view)
-float defocus_angle = 2.5;  // Variation angle of rays through each pixel
+float defocus_angle = 0.3;  // Variation angle of rays through each pixel
 float focus_dist = 0.5;
 uniform vec3 lookfrom = vec3(0,0,0);   // Point camera is looking from
 uniform vec3 lookat   = vec3(0,0,-1);  // Point camera is looking at
@@ -23,10 +23,14 @@ vec3 pixel00_loc;
 vec3 pixel_delta_u;
 vec3 pixel_delta_v;
 
-#define MAX_BOUNCES 4
-#define SPHERE_COUNT 3
+#define MAX_BOUNCES 6
+#define SPHERE_COUNT 13
 #define PI 3.14159265359
 
+// Material types
+#define LAMBERTIAN 0
+#define METAL      1
+#define DIELECTRIC 2
 
 // A single iteration of Bob Jenkins' One-At-A-Time hashing algorithm.
 uint hash( uint x ) {
@@ -71,7 +75,7 @@ float random( vec4  v ) { return floatConstruct(hash(floatBitsToUint(v))); }
 
 // Bad distribution, elongated shadows
 vec3 WrongRandomUnitVec3(vec3 seed) {
-    return normalize(vec3(random(iTime*seed), random(iTime*3*seed), random(iTime*7*seed)));
+    return normalize(vec3(random(seed), random(3*seed), random(7*seed)));
 
     while (true) {
         vec3 vec = vec3(random(seed.x), random(seed.y), random(seed.z));
@@ -85,11 +89,11 @@ vec3 WrongRandomUnitVec3(vec3 seed) {
 
 // More unifrom distribution, circle shadows
 vec3 RandomUnitVec3(vec3 seed) {
-    vec3 rand = WrongRandomUnitVec3(seed*iTime);
+    vec3 rand = WrongRandomUnitVec3(seed);
     rand.z *= -1;
     rand.x *= -1;
     rand *= 0.5;
-    rand += WrongRandomUnitVec3(seed*iTime*iTime)*0.5;
+    rand += WrongRandomUnitVec3(seed*seed)*0.5;
     return rand;
 }
 
@@ -118,6 +122,9 @@ vec3 DefocusDiskSample(vec3 seed) {
 
 struct Material {
     vec3 albedo;
+    int mat_id;
+    float fuzz; // for metalic
+    float refraction_index; // for dielectric
 };
 
 struct Sphere {
@@ -153,9 +160,17 @@ vec3 RayAt(Ray ray, float t) {
 Sphere spheres[SPHERE_COUNT];
 
 void setupScene() {
-    spheres[0] = Sphere(vec3(0.0, -1000.5, 0.0), 1000.0, Material(vec3(0.8, 0.3, 0.3))); // ground
-    spheres[1] = Sphere(vec3(-0.5, 0.0, 0.0), 0.5, Material(vec3(0.8, 0.8, 0.1))); // yellow
-    spheres[2] = Sphere(vec3( 0.5, 0.0, 0.0), 0.5, Material(vec3(0.1, 0.8, 0.8)));
+    spheres[0] = Sphere(vec3(0.0, -1000, 0.0), 1000.0, Material(vec3(0.5, 0.5, 0.5), LAMBERTIAN, 0.0, 0.0)); // ground
+    spheres[1] = Sphere(vec3(0.0, 4.0, 0.0), 4.0, Material(vec3(0.99, 0.9, 0.9), DIELECTRIC, 0.3, 1/1.3));
+    spheres[2] = Sphere(vec3(9.0, 5.0, 9.0), 5.0, Material(vec3(0.8, 0.1, 0.1), METAL, 0.1, 1/1.3));
+
+    for (int i = 3; i < SPHERE_COUNT; i++) {
+        float radius = random(float(i));
+        vec3 color = vec3(random(i), random(i*i), random(i*i*i));
+        vec3 pos = RandomUnitVec3(vec3(i*i));
+        pos.xz *= 30;
+        spheres[i] = Sphere(pos, radius, Material(color, LAMBERTIAN, 0.0, 0.0));
+    }
 }
 
 HitResult hit_sphere(Sphere sphere, Ray r) {
@@ -204,19 +219,87 @@ vec3 SkyColor(Ray ray) {
     return (1.0-a)*vec3(1.0, 1.0, 1.0) + a*vec3(0.5, 0.7, 1.0);
 }
 
+bool Vec3NearZero(in vec3 v) {
+    return abs(v.x) < 0.0001 && abs(v.y) < 0.0001 && abs(v.z) < 0.0001;
+}
+
+bool LambertianScatter(inout Ray r_in, inout HitResult rec, inout vec3 attenuation, inout Ray scattered) {
+    vec3 scatter_direction = rec.normal + RandomUnitVec3(rec.hit_pos*iTime);
+
+    // Catch degenerate scatter direction
+    if (Vec3NearZero(scatter_direction)) scatter_direction = rec.normal;
+
+    scattered = Ray(rec.hit_pos, scatter_direction);
+    attenuation = rec.mat.albedo;
+    return true;
+}
+
+bool MetalScatter(inout Ray r_in, inout HitResult rec, inout vec3 attenuation, inout Ray scattered) {
+    vec3 reflected = reflect(r_in.direction, rec.normal);
+    reflected += rec.mat.fuzz * RandomUnitVec3(rec.hit_pos*iTime);
+    scattered = Ray(rec.hit_pos, reflected);
+    attenuation = rec.mat.albedo;
+    return dot(scattered.direction, rec.normal) > 0;
+}
+
+float reflectance(float cosine, float refraction_index) {
+    // Use Schlick's approximation for reflectance.
+    float r0 = (1 - refraction_index) / (1 + refraction_index);
+    r0 = r0*r0;
+    return r0 + (1-r0)*pow((1 - cosine),5);
+}
+
+bool DielectricScatter(inout Ray r_in, inout HitResult rec, inout vec3 attenuation, inout Ray scattered) {
+    attenuation = rec.mat.albedo;
+    float ri = rec.front_face ? (1.0/rec.mat.refraction_index) : rec.mat.refraction_index;
+
+    vec3 unit_direction = normalize(r_in.direction);
+    float cos_theta = min(dot(-unit_direction, rec.normal), 1.0);
+    float sin_theta = sqrt(1.0 - cos_theta*cos_theta);
+
+    bool cannot_refract = ri * sin_theta > 1.0;
+    vec3 direction;
+
+    if (cannot_refract || reflectance(cos_theta, ri) > random(rec.hit_pos))
+        direction = reflect(unit_direction, rec.normal);
+    else
+        direction = refract(unit_direction, rec.normal, ri);
+
+    scattered = Ray(rec.hit_pos, direction);
+    return true;
+}
+
+bool Scatter(inout Ray r_in, inout HitResult rec, inout vec3 attenuation, inout Ray scattered) {
+    
+    if (rec.mat.mat_id == LAMBERTIAN) {
+        return LambertianScatter(r_in, rec, attenuation, scattered);
+    }
+    else if (rec.mat.mat_id == METAL) {
+        return MetalScatter(r_in, rec, attenuation, scattered);
+    }
+    else if (rec.mat.mat_id == DIELECTRIC) {
+        return DielectricScatter(r_in, rec, attenuation, scattered);
+    }
+
+    return true;
+}
+
 vec3 RayColor(Ray ray) {
     vec3 color = vec3(1.0);
     for (int bounce = 0; bounce < MAX_BOUNCES; bounce++) {
         HitResult res = hit_world(ray, 100000000);
         if (res.t > 0.001) {
-            color *= res.mat.albedo;
             // scatter ray
-            vec3 p = RayAt(ray, res.t);
-
-            // Doing this stupid shit because all these "random" generators provide results that are tilted into one direction
-            // Resulting in "shadows" and stuff bend that way too
-            vec3 random_offset = RandomUnitVec3(p);
-            ray = Ray(p, res.normal+random_offset);
+            Ray scattered;
+            vec3 attenuation;
+            if (Scatter(ray, res, attenuation, scattered)) {
+                color *= attenuation;
+                vec3 p = RayAt(ray, res.t);
+                //vec3 random_offset = RandomUnitVec3(p*iTime);
+                //ray = Ray(p, res.normal+random_offset);
+                ray = scattered;
+            }
+            else return vec3(0.0); // ray fully absorbed
         }
         else {
             color *= SkyColor(ray);

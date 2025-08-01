@@ -8,7 +8,9 @@ struct CameraControl {
     float yaw = 0.0f;
     float pitch = 0.0f;
     float mouseSensitivity = 0.005;
-    vec3 Position = vec3(0.0);
+    float speed = 3.0;
+
+    vec3 Position = vec3(0.0, 0.0, -3.0);
     vec3 vup = vec3(0.0, 1.0, 0.0);
 
     // counts frames. When camera is modified gets resets, so the accumulation starts again
@@ -78,7 +80,7 @@ struct CameraControl {
         Velocity += GetRightVector() * float(dr) * GetFrameTime();
         Velocity += vup * float(du) * GetFrameTime();
 
-        Position += Velocity;
+        Position += Velocity*speed;
         if (Velocity != vec3(0.0)) RestartAccum();
     }
 
