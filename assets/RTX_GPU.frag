@@ -263,7 +263,7 @@ Ray getRay(vec2 viewport_coord) {
 
     vec3 offset = SampleSquare(pixel_center*iTime);
 
-    vec3 ray_origin = (defocus_angle <= 0) ? lookfrom : DefocusDiskSample(pixel_center);
+    vec3 ray_origin = (defocus_angle <= 0) ? lookfrom : DefocusDiskSample(pixel_center*iTime);
     vec3 ray_direction = pixel_center - ray_origin;
 
     return Ray(ray_origin, ray_direction);
