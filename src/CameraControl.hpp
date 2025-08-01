@@ -25,6 +25,12 @@ struct CameraControl {
         buffer = LoadRenderTexture(render_width, render_height);
     }
 
+    void NewResolution(int render_width, int render_height) {
+        RestartAccum();
+        UnloadRenderTexture(buffer);
+        buffer = LoadRenderTexture(render_width, render_height);
+    }
+
     void DrawToBuffer(Shader& shader) {
         BeginTextureMode(buffer);
             BeginShaderMode(shader);

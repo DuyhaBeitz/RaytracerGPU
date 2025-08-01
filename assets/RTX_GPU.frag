@@ -16,6 +16,8 @@ uniform vec3 lookfrom = vec3(0,0,0);   // Point camera is looking from
 uniform vec3 lookat   = vec3(0,0,-1);  // Point camera is looking at
 vec3 vup              = vec3(0,1,0);   // Camera-relative "up" direction
 
+uniform bool ionly_normals = false;
+
 vec3 defocus_disk_u;
 vec3 defocus_disk_v;
 
@@ -23,8 +25,7 @@ vec3 pixel00_loc;
 vec3 pixel_delta_u;
 vec3 pixel_delta_v;
 
-#define MAX_BOUNCES 6
-#define SPHERE_COUNT 13
+#define MAX_BOUNCES 32
 #define PI 3.14159265359
 
 // Material types
@@ -157,18 +158,20 @@ vec3 RayAt(Ray ray, float t) {
     return ray.origin + t*ray.direction;
 }
 
+#define SPHERE_COUNT 40
 Sphere spheres[SPHERE_COUNT];
 
-void setupScene() {
-    spheres[0] = Sphere(vec3(0.0, -1000, 0.0), 1000.0, Material(vec3(0.5, 0.5, 0.5), LAMBERTIAN, 0.0, 0.0)); // ground
-    spheres[1] = Sphere(vec3(0.0, 4.0, 0.0), 4.0, Material(vec3(0.99, 0.9, 0.9), DIELECTRIC, 0.3, 1/1.3));
-    spheres[2] = Sphere(vec3(9.0, 5.0, 9.0), 5.0, Material(vec3(0.8, 0.1, 0.1), METAL, 0.1, 1/1.3));
+void SetupScene() {
+    spheres[0] = Sphere(vec3(0.0, -250, 0.0), 250.0, Material(vec3(0.3, 0.8, 0.2), LAMBERTIAN, 0.0, 0.0)); // ground
+    spheres[1] = Sphere(vec3(0.0, 1.0, 0.0), 1.0, Material(vec3(1.0), DIELECTRIC, 0.0, 1.5));
+    spheres[2] = Sphere(vec3(3.0, 3.25, 3.0), 3.25, Material(vec3(0.7, 0.6, 0.5), METAL, 0.0, 0.0));
 
     for (int i = 3; i < SPHERE_COUNT; i++) {
-        float radius = random(float(i));
-        vec3 color = vec3(random(i), random(i*i), random(i*i*i));
+        float radius = random(float(i))/4;
+        vec3 color = clamp(vec3(random(i), random(i*i), random(i*i*i))*1.2, 0.0, 1.0);
         vec3 pos = RandomUnitVec3(vec3(i*i));
-        pos.xz *= 30;
+        pos.xz *= 20;
+        pos.y /= 4;
         spheres[i] = Sphere(pos, radius, Material(color, LAMBERTIAN, 0.0, 0.0));
     }
 }
@@ -288,6 +291,11 @@ vec3 RayColor(Ray ray) {
     vec3 color = vec3(1.0);
     for (int bounce = 0; bounce < MAX_BOUNCES; bounce++) {
         HitResult res = hit_world(ray, 100000000);
+        if (ionly_normals) {
+            if (res.t > 0.001) return (res.normal+1.0)/2.0;
+            return SkyColor(ray);
+        }
+        
         if (res.t > 0.001) {
             // scatter ray
             Ray scattered;
@@ -343,9 +351,6 @@ void Initialize() {
 // Camera
 Ray getRay(vec2 viewport_coord) {
     vec3 pixel_center = pixel00_loc + (viewport_coord.x * pixel_delta_u * iResolution.x) + (viewport_coord.y * pixel_delta_v * iResolution.y);
-
-    vec3 offset = SampleSquare(pixel_center*iTime);
-
     vec3 ray_origin = (defocus_angle <= 0) ? lookfrom : DefocusDiskSample(pixel_center*iTime);
     vec3 ray_direction = pixel_center - ray_origin;
 
@@ -357,7 +362,7 @@ void main() {
     uv = 2.0 * uv - 1.0;
     uv.x *= iResolution.x / iResolution.y;
 
-    setupScene();
+    SetupScene();
 
     Initialize();
 
@@ -371,6 +376,6 @@ void main() {
     col /= float(samples);
     
     // Gamma correction
-    col = pow(col, vec3(1.0 / 2.2));
+    col = pow(col, vec3(1.0 / 2.0));
     FragColor = vec4(col, 1.0);
 }
