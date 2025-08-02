@@ -100,11 +100,19 @@ struct CameraControl {
     }
 
     void ApplyUniforms(Shader& shader) {
-        float Lookfrom[3] = {Position.x(), Position.y(), Position.z()};
+        float Lookfrom[3] = {
+            float(Position.x()),
+            float(Position.y()),
+            float(Position.z())
+        };
         SetShaderValue(shader, GetShaderLocation(shader, "lookfrom"), &Lookfrom, SHADER_UNIFORM_VEC3);
 
         vec3 At = Position + GetForwardVector();
-        float Lookat[3] = {At.x(), At.y(), At.z()};
+        float Lookat[3] = {
+            float(At.x()),
+            float(At.y()),
+            float(At.z())
+        };
         SetShaderValue(shader, GetShaderLocation(shader, "lookat"), &Lookat, SHADER_UNIFORM_VEC3);
     }
 };
