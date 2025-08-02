@@ -2,18 +2,22 @@
 #include <raymath.h>
 #include <rlgl.h>
 
-#include "CameraControl.hpp"
-#include "vec3.h"
 #include <memory>
 #include <time.h>
 #include <stdio.h>
+#include <iostream>
+
+#include "CameraControl.hpp"
+#include "World.hpp"
+
+Shader shader;
 
 std::shared_ptr<CameraControl> camera;
+std::shared_ptr<World> world;
 
 bool only_normals = false;
 bool show_info = false;
 
-Shader shader;
 
 float runTime = 0.f;
 
@@ -52,20 +56,28 @@ int main() {
     return 0;
 }
 
-bool Init()
-{
-    InitWindow(500, 500, "RTX GPU");
+bool Init() {
+    InitWindow(0, 0, "RTX GPU");
     if (!IsWindowReady()) {
         return false;
     }
     ToggleBorderlessWindowed();
     DisableCursor();
 
+    /*
+    std::string fragCode = LoadShaderRecursive("assets/RTX_GPU.f");
+    WriteToFile(fragCode, "assets/final.frag");
+    shader = LoadShaderFromMemory(nullptr, fragCode.c_str());
+    */
     shader = LoadShader(0, "assets/RTX_GPU.frag");
-    camera = std::make_shared<CameraControl>(3840/16, 2160/16);
+    camera = std::make_shared<CameraControl>(3840/4, 2160/4);
+
+    world = std::make_shared<World>();
+    world->ApplyUniforms(shader);
 
     Texture2D shapes_texture = { rlGetTextureIdDefault(), 1, 1, 1, PIXELFORMAT_UNCOMPRESSED_R8G8B8A8 };
     SetShapesTexture(shapes_texture, (Rectangle){ 0.0f, 0.0f, 1.0f, 1.0f });
+
     return true;
 }
 

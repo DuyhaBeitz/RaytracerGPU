@@ -1,6 +1,5 @@
 #pragma once
 
-#include "vec3.h"
 #include <raylib.h>
 #include <raymath.h>
 
@@ -10,8 +9,8 @@ struct CameraControl {
     float mouseSensitivity = 0.005;
     float speed = 3.0;
 
-    vec3 Position = vec3(0.0, 0.0, -3.0);
-    vec3 vup = vec3(0.0, 1.0, 0.0);
+    Vector3 Position = Vector3{0.0, 0.0, -3.0};
+    Vector3 vup = Vector3{0.0, 1.0, 0.0};
 
     // counts frames. When camera is modified gets resets, so the accumulation starts again
     float accumFrameCount = 0.f;
@@ -68,12 +67,12 @@ struct CameraControl {
 
     /***************************************************************************************/
 
-    vec3 GetForwardVector() {
-        return vec3(cosf(pitch) * sinf(yaw), sinf(pitch), cosf(pitch) * cosf(yaw));
+    Vector3 GetForwardVector() {
+        return Vector3{cosf(pitch) * sinf(yaw), sinf(pitch), cosf(pitch) * cosf(yaw)};
     }
 
-    vec3 GetRightVector() {
-        return -unit_vector(cross(vup, GetForwardVector()));
+    Vector3 GetRightVector() {
+        return Vector3Negate(Vector3Normalize(Vector3CrossProduct(vup, GetForwardVector())));
     }
 
     void UpdatePosition() {
@@ -81,13 +80,13 @@ struct CameraControl {
         int dr = IsKeyDown(KEY_D) - IsKeyDown(KEY_A);
         int du = IsKeyDown(KEY_SPACE) - IsKeyDown(KEY_LEFT_CONTROL);
     
-        vec3 Velocity = vec3(0.0);
+        Vector3 Velocity = Vector3{0.0};
         Velocity += GetForwardVector() * float(df) * GetFrameTime();
         Velocity += GetRightVector() * float(dr) * GetFrameTime();
         Velocity += vup * float(du) * GetFrameTime();
 
         Position += Velocity*speed;
-        if (Velocity != vec3(0.0)) RestartAccum();
+        if (Velocity != Vector3{0.0}) RestartAccum();
     }
 
     void UpdateForward() {
@@ -101,17 +100,17 @@ struct CameraControl {
 
     void ApplyUniforms(Shader& shader) {
         float Lookfrom[3] = {
-            float(Position.x()),
-            float(Position.y()),
-            float(Position.z())
+            float(Position.x),
+            float(Position.y),
+            float(Position.z)
         };
         SetShaderValue(shader, GetShaderLocation(shader, "lookfrom"), &Lookfrom, SHADER_UNIFORM_VEC3);
 
-        vec3 At = Position + GetForwardVector();
+        Vector3 At = Position + GetForwardVector();
         float Lookat[3] = {
-            float(At.x()),
-            float(At.y()),
-            float(At.z())
+            float(At.x),
+            float(At.y),
+            float(At.z)
         };
         SetShaderValue(shader, GetShaderLocation(shader, "lookat"), &Lookat, SHADER_UNIFORM_VEC3);
     }

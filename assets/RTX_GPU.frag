@@ -1,7 +1,6 @@
 #version 330
 
 
-
 in vec2 fragTexCoord; // [0:1]
 out vec4 FragColor;
 
@@ -25,8 +24,11 @@ vec3 pixel00_loc;
 vec3 pixel_delta_u;
 vec3 pixel_delta_v;
 
-#define MAX_BOUNCES 32
+#define MAX_BOUNCES 4
 #define PI 3.14159265359
+
+#define MATERIAL_COUNT 4
+#define OBJECT_COUNT 2
 
 // Material types
 #define LAMBERTIAN 0
@@ -42,8 +44,6 @@ uint hash( uint x ) {
     x += ( x << 15u );
     return x;
 }
-
-
 
 // Compound versions of the hashing algorithm I whipped together.
 uint hash( uvec2 v ) { return hash( v.x ^ hash(v.y)                         ); }
@@ -64,8 +64,6 @@ float floatConstruct( uint m ) {
     float  f = uintBitsToFloat( m );       // Range [1:2]
     return f - 1.0;                        // Range [0:1]
 }
-
-
 
 // Pseudo-random value in half-open range [0:1].
 float random( float x ) { return floatConstruct(hash(floatBitsToUint(x))); }
@@ -98,7 +96,6 @@ vec3 RandomUnitVec3(vec3 seed) {
     return rand;
 }
 
-
 vec3 RandomUnitDisk(vec3 seed) {
     while (true) {
         vec3 p = vec3(random(seed)*2.0-1.0, random(seed)*2.0-1.0, 0);
@@ -108,6 +105,8 @@ vec3 RandomUnitDisk(vec3 seed) {
         seed.z += random(seed.z)-0.5;
     }
 }
+
+
 
 vec3 SampleSquare(vec3 seed) {
     // Returns the vector to a random point in the [-.5,-.5]-[+.5,+.5] unit square.
@@ -121,18 +120,7 @@ vec3 DefocusDiskSample(vec3 seed) {
     return lookfrom + (p.x * defocus_disk_u) + (p.y * defocus_disk_v);
 }
 
-struct Material {
-    vec3 albedo;
-    int mat_id;
-    float fuzz; // for metalic
-    float refraction_index; // for dielectric
-};
 
-struct Sphere {
-    vec3 center;
-    float radius;
-    Material material;
-};
 
 struct Ray {
     vec3 origin;
@@ -142,7 +130,7 @@ struct Ray {
 struct HitResult {
     vec3 hit_pos;
     vec3 normal;
-    Material mat;
+    int mat_id;
     float t;
     bool front_face;
 }; 
@@ -158,31 +146,48 @@ vec3 RayAt(Ray ray, float t) {
     return ray.origin + t*ray.direction;
 }
 
-#define SPHERE_COUNT 40
-Sphere spheres[SPHERE_COUNT];
-
-void SetupScene() {
-    spheres[0] = Sphere(vec3(0.0, -250, 0.0), 250.0, Material(vec3(0.3, 0.8, 0.2), LAMBERTIAN, 0.0, 0.0)); // ground
-    spheres[1] = Sphere(vec3(0.0, 1.0, 0.0), 1.0, Material(vec3(1.0), DIELECTRIC, 0.0, 1.5));
-    spheres[2] = Sphere(vec3(3.0, 3.25, 3.0), 3.25, Material(vec3(0.7, 0.6, 0.5), METAL, 0.0, 0.0));
-
-    for (int i = 3; i < SPHERE_COUNT; i++) {
-        float radius = random(float(i))/4;
-        vec3 color = clamp(vec3(random(i), random(i*i), random(i*i*i))*1.2, 0.0, 1.0);
-        vec3 pos = RandomUnitVec3(vec3(i*i));
-        pos.xz *= 20;
-        pos.y /= 4;
-        spheres[i] = Sphere(pos, radius, Material(color, LAMBERTIAN, 0.0, 0.0));
-    }
+bool Vec3NearZero(in vec3 v) {
+    return abs(v.x) < 0.0001 && abs(v.y) < 0.0001 && abs(v.z) < 0.0001;
 }
 
-HitResult hit_sphere(Sphere sphere, Ray r) {
-    vec3 oc = sphere.center - r.origin;
+/*
+struct Material {
+    vec3 albedo;
+    int mat_type;
+    float fuzz; // for metalic
+    float refraction_index; // for dielectric
+};
+struct Hittable {
+    int geometry_type;
+    int material_id;
+    vec3 a;
+    vec3 b;
+    vec3 c;
+};
+*/
+
+uniform vec3 u_albedo[MATERIAL_COUNT];
+uniform int u_mat_type[MATERIAL_COUNT];
+uniform float u_fuzz[MATERIAL_COUNT];
+uniform float u_refraction_index[MATERIAL_COUNT];
+
+#define SPHERE 0
+uniform int u_geometry_type[OBJECT_COUNT];
+uniform int u_mat_id[OBJECT_COUNT];
+uniform vec3 u_a[OBJECT_COUNT]; // center for spheres
+uniform vec3 u_b[OBJECT_COUNT]; // .x is radius for sheres
+uniform vec3 u_c[OBJECT_COUNT];
+
+HitResult hit_sphere(int obj_id, Ray r) {
+    vec3 center = u_a[obj_id];
+    float radius = u_b[obj_id].x;
+
+    vec3 oc = center - r.origin;
     float lr = length(r.direction);
     float loc = length(oc);
     float a = lr*lr;
     float h = dot(r.direction, oc);
-    float c = loc*loc - sphere.radius*sphere.radius;
+    float c = loc*loc - radius*radius;
     float discriminant = h*h - a*c;
 
     HitResult res;
@@ -191,10 +196,19 @@ HitResult hit_sphere(Sphere sphere, Ray r) {
     } else {
         res.t = (h - sqrt(discriminant)) / a;
     }
-    res.mat = sphere.material;
+    res.mat_id = u_mat_id[obj_id];
     res.hit_pos = RayAt(r, res.t);
-    vec3 normal = normalize(RayAt(r, res.t) - sphere.center);
+    vec3 normal = normalize(RayAt(r, res.t) - center);
     SetFaceNormal(r, normal, res);
+    return res;
+}
+
+HitResult abstract_hit(int obj_id, Ray r) {
+    if (u_geometry_type[obj_id] == SPHERE) {
+        return hit_sphere(obj_id, r);
+    }
+    HitResult res;
+    res.t = -1.0;
     return res;
 }
 
@@ -203,8 +217,8 @@ HitResult hit_world(Ray ray, float max_t) {
     result.t = max_t; // by default no hit
 
     bool hit_any = false;
-    for (int i = 0; i < SPHERE_COUNT; i++) {
-        HitResult new_res = hit_sphere(spheres[i], ray);
+    for (int i = 0; i < OBJECT_COUNT; i++) {
+        HitResult new_res = abstract_hit(i, ray);
         if (new_res.t >= 0.001 && new_res.t <= max_t) {
             if (new_res.t < result.t) {
                 result = new_res;
@@ -216,15 +230,6 @@ HitResult hit_world(Ray ray, float max_t) {
     return result;
 }
 
-vec3 SkyColor(Ray ray) {
-    vec3 unit_direction = normalize(ray.direction);
-    float a = 0.5*(unit_direction.y + 1.0);
-    return (1.0-a)*vec3(1.0, 1.0, 1.0) + a*vec3(0.5, 0.7, 1.0);
-}
-
-bool Vec3NearZero(in vec3 v) {
-    return abs(v.x) < 0.0001 && abs(v.y) < 0.0001 && abs(v.z) < 0.0001;
-}
 
 bool LambertianScatter(inout Ray r_in, inout HitResult rec, inout vec3 attenuation, inout Ray scattered) {
     vec3 scatter_direction = rec.normal + RandomUnitVec3(rec.hit_pos*iTime);
@@ -233,15 +238,15 @@ bool LambertianScatter(inout Ray r_in, inout HitResult rec, inout vec3 attenuati
     if (Vec3NearZero(scatter_direction)) scatter_direction = rec.normal;
 
     scattered = Ray(rec.hit_pos, scatter_direction);
-    attenuation = rec.mat.albedo;
+    attenuation = u_albedo[rec.mat_id];
     return true;
 }
 
 bool MetalScatter(inout Ray r_in, inout HitResult rec, inout vec3 attenuation, inout Ray scattered) {
     vec3 reflected = reflect(r_in.direction, rec.normal);
-    reflected += rec.mat.fuzz * RandomUnitVec3(rec.hit_pos*iTime);
+    reflected += u_fuzz[rec.mat_id] + RandomUnitVec3(rec.hit_pos*iTime);
     scattered = Ray(rec.hit_pos, reflected);
-    attenuation = rec.mat.albedo;
+    attenuation = u_albedo[rec.mat_id];
     return dot(scattered.direction, rec.normal) > 0;
 }
 
@@ -253,8 +258,9 @@ float reflectance(float cosine, float refraction_index) {
 }
 
 bool DielectricScatter(inout Ray r_in, inout HitResult rec, inout vec3 attenuation, inout Ray scattered) {
-    attenuation = rec.mat.albedo;
-    float ri = rec.front_face ? (1.0/rec.mat.refraction_index) : rec.mat.refraction_index;
+    attenuation = u_albedo[rec.mat_id];
+
+    float ri = rec.front_face ? (1.0/u_refraction_index[rec.mat_id]) : u_refraction_index[rec.mat_id];
 
     vec3 unit_direction = normalize(r_in.direction);
     float cos_theta = min(dot(-unit_direction, rec.normal), 1.0);
@@ -273,18 +279,23 @@ bool DielectricScatter(inout Ray r_in, inout HitResult rec, inout vec3 attenuati
 }
 
 bool Scatter(inout Ray r_in, inout HitResult rec, inout vec3 attenuation, inout Ray scattered) {
-    
-    if (rec.mat.mat_id == LAMBERTIAN) {
+    if (u_mat_type[rec.mat_id] == LAMBERTIAN) {
         return LambertianScatter(r_in, rec, attenuation, scattered);
     }
-    else if (rec.mat.mat_id == METAL) {
+    else if (u_mat_type[rec.mat_id] == METAL) {
         return MetalScatter(r_in, rec, attenuation, scattered);
     }
-    else if (rec.mat.mat_id == DIELECTRIC) {
+    else if (u_mat_type[rec.mat_id] == DIELECTRIC) {
         return DielectricScatter(r_in, rec, attenuation, scattered);
     }
+    return false;
+}
 
-    return true;
+
+vec3 SkyColor(Ray ray) {
+    vec3 unit_direction = normalize(ray.direction);
+    float a = 0.5*(unit_direction.y + 1.0);
+    return (1.0-a)*vec3(1.0, 1.0, 1.0) + a*vec3(0.5, 0.7, 1.0);
 }
 
 vec3 RayColor(Ray ray) {
@@ -293,7 +304,7 @@ vec3 RayColor(Ray ray) {
         HitResult res = hit_world(ray, 100000000);
         if (ionly_normals) {
             if (res.t > 0.001) return (res.normal+1.0)/2.0;
-            return SkyColor(ray);
+            return vec3(0.0);
         }
         
         if (res.t > 0.001) {
@@ -317,6 +328,8 @@ vec3 RayColor(Ray ray) {
     
     return color;
 }
+
+
 
 void Initialize() {  
     // Determine viewport dimensions.
@@ -357,17 +370,16 @@ Ray getRay(vec2 viewport_coord) {
     return Ray(ray_origin, ray_direction);
 }
 
+
 void main() {
     vec2 uv = fragTexCoord / iResolution;
     uv = 2.0 * uv - 1.0;
     uv.x *= iResolution.x / iResolution.y;
 
-    SetupScene();
-
     Initialize();
 
     vec3 col = vec3(0.0);
-    int samples = 4;
+    int samples = 3;
     for (int i = 0; i < samples; ++i) {
         vec2 offset = vec2(float(i) / float(samples), fract(sin(float(i)*13.37*iTime)));
         Ray ray = getRay(fragTexCoord+offset*0.001);
