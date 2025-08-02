@@ -127,12 +127,14 @@ struct Ray {
     vec3 direction;
 };
 
+
 struct HitResult {
     vec3 hit_pos;
     vec3 normal;
     int mat_id;
     float t;
     bool front_face;
+    vec2 uv;
 }; 
 
 void SetFaceNormal(Ray r, vec3 outward_normal, inout HitResult hit_res) {
@@ -150,24 +152,9 @@ bool Vec3NearZero(in vec3 v) {
     return abs(v.x) < 0.0001 && abs(v.y) < 0.0001 && abs(v.z) < 0.0001;
 }
 
-/*
-struct Material {
-    vec3 albedo;
-    int mat_type;
-    float fuzz; // for metalic
-    float refraction_index; // for dielectric
-};
-struct Hittable {
-    int geometry_type;
-    int material_id;
-    vec3 a;
-    vec3 b;
-    vec3 c;
-};
-*/
-
 uniform vec3 u_albedo[MATERIAL_COUNT];
 uniform int u_mat_type[MATERIAL_COUNT];
+uniform int u_tex_id[MATERIAL_COUNT];
 uniform float u_fuzz[MATERIAL_COUNT];
 uniform float u_refraction_index[MATERIAL_COUNT];
 
@@ -178,7 +165,66 @@ uniform vec3 u_a[OBJECT_COUNT]; // center for spheres
 uniform vec3 u_b[OBJECT_COUNT]; // .x is radius for sheres
 uniform vec3 u_c[OBJECT_COUNT];
 
+uniform sampler2D tex0;
+uniform sampler2D tex1;
+uniform sampler2D tex2;
+uniform sampler2D tex3;
+uniform sampler2D tex4;
+uniform sampler2D tex5;
+uniform sampler2D tex6;
+uniform sampler2D tex7;
+uniform sampler2D tex8;
+uniform sampler2D tex9;
+uniform sampler2D tex10;
+uniform sampler2D tex11;
+uniform sampler2D tex12;
+uniform sampler2D tex13;
+uniform sampler2D tex14;
+uniform sampler2D tex15;
+
+vec4 GetTextureColor(vec2 uv, int tex_id) {
+    if (tex_id == 0) return texture2D(tex0, uv);
+    if (tex_id == 1) return texture2D(tex1, uv);
+    if (tex_id == 2) return texture2D(tex2, uv);
+    if (tex_id == 3) return texture2D(tex3, uv);
+    if (tex_id == 4) return texture2D(tex4, uv);
+    if (tex_id == 5) return texture2D(tex5, uv);
+    if (tex_id == 6) return texture2D(tex6, uv);
+    if (tex_id == 7) return texture2D(tex7, uv);
+    if (tex_id == 8) return texture2D(tex8, uv);
+    if (tex_id == 9) return texture2D(tex9, uv);
+    if (tex_id == 10) return texture2D(tex10, uv);
+    if (tex_id == 11) return texture2D(tex11, uv);
+    if (tex_id == 12) return texture2D(tex12, uv);
+    if (tex_id == 13) return texture2D(tex13, uv);
+    if (tex_id == 14) return texture2D(tex14, uv);
+    if (tex_id == 15) return texture2D(tex15, uv);    
+    return texture2D(tex0, uv);
+}
+
+vec3 CheckerPattern(in vec3 point, vec3 color) {
+    int xInteger = int(floor(point.x));
+    int yInteger = int(floor(point.y));
+    int zInteger = int(floor(point.z));
+
+    bool isEven = (xInteger + yInteger + zInteger) % 2 == 0;
+
+    return isEven ? color : vec3(1.0);
+}
+
+vec3 MatColor(int mat_id, vec2 uv, inout vec3 point) {
+    int tex_id = u_tex_id[mat_id];
+    if (tex_id < 0) {
+        return u_albedo[mat_id];
+    }
+    else if (tex_id < 16) {
+        return u_albedo[mat_id] * GetTextureColor(uv, tex_id).rgb;
+    }
+    else return CheckerPattern(point, u_albedo[mat_id]);
+}
+
 HitResult hit_sphere(int obj_id, Ray r) {
+
     vec3 center = u_a[obj_id];
     float radius = u_b[obj_id].x;
 
@@ -191,9 +237,8 @@ HitResult hit_sphere(int obj_id, Ray r) {
     float discriminant = h*h - a*c;
 
     HitResult res;
-    if (discriminant < 0) {
-        res.t = -1.0;
-    } else {
+    res.t = -1.0;
+    if (discriminant >= 0) {
         res.t = (h - sqrt(discriminant)) / a;
     }
     res.mat_id = u_mat_id[obj_id];
@@ -212,24 +257,23 @@ HitResult abstract_hit(int obj_id, Ray r) {
     return res;
 }
 
-HitResult hit_world(Ray ray, float max_t) {
+HitResult hit_world(Ray ray) {
     HitResult result;
-    result.t = max_t; // by default no hit
+    result.t = -1.0; // by default no hit
+
 
     bool hit_any = false;
     for (int i = 0; i < OBJECT_COUNT; i++) {
         HitResult new_res = abstract_hit(i, ray);
-        if (new_res.t >= 0.001 && new_res.t <= max_t) {
-            if (new_res.t < result.t) {
+        if (new_res.t >= 0.001) {
+            if (new_res.t < result.t || result.t == -1.0) {
                 result = new_res;
             }
             hit_any = true;
         }
     }
-    if (!hit_any) result.t = -1.0; // from max_t to -1.0
     return result;
 }
-
 
 bool LambertianScatter(inout Ray r_in, inout HitResult rec, inout vec3 attenuation, inout Ray scattered) {
     vec3 scatter_direction = rec.normal + RandomUnitVec3(rec.hit_pos*iTime);
@@ -238,7 +282,8 @@ bool LambertianScatter(inout Ray r_in, inout HitResult rec, inout vec3 attenuati
     if (Vec3NearZero(scatter_direction)) scatter_direction = rec.normal;
 
     scattered = Ray(rec.hit_pos, scatter_direction);
-    attenuation = u_albedo[rec.mat_id];
+    attenuation = MatColor(rec.mat_id, rec.uv, rec.hit_pos);
+    if (attenuation.r > 1 || attenuation.g > 1 || attenuation.b > 1) attenuation = vec3(0.0);
     return true;
 }
 
@@ -246,7 +291,7 @@ bool MetalScatter(inout Ray r_in, inout HitResult rec, inout vec3 attenuation, i
     vec3 reflected = reflect(r_in.direction, rec.normal);
     reflected += u_fuzz[rec.mat_id] + RandomUnitVec3(rec.hit_pos*iTime);
     scattered = Ray(rec.hit_pos, reflected);
-    attenuation = u_albedo[rec.mat_id];
+    attenuation = MatColor(rec.mat_id, rec.uv, rec.hit_pos);
     return dot(scattered.direction, rec.normal) > 0;
 }
 
@@ -258,7 +303,7 @@ float reflectance(float cosine, float refraction_index) {
 }
 
 bool DielectricScatter(inout Ray r_in, inout HitResult rec, inout vec3 attenuation, inout Ray scattered) {
-    attenuation = u_albedo[rec.mat_id];
+    attenuation = MatColor(rec.mat_id, rec.uv, rec.hit_pos);
 
     float ri = rec.front_face ? (1.0/u_refraction_index[rec.mat_id]) : u_refraction_index[rec.mat_id];
 
@@ -301,7 +346,7 @@ vec3 SkyColor(Ray ray) {
 vec3 RayColor(Ray ray) {
     vec3 color = vec3(1.0);
     for (int bounce = 0; bounce < MAX_BOUNCES; bounce++) {
-        HitResult res = hit_world(ray, 100000000);
+        HitResult res = hit_world(ray);
         if (ionly_normals) {
             if (res.t > 0.001) return (res.normal+1.0)/2.0;
             return vec3(0.0);
@@ -313,9 +358,6 @@ vec3 RayColor(Ray ray) {
             vec3 attenuation;
             if (Scatter(ray, res, attenuation, scattered)) {
                 color *= attenuation;
-                vec3 p = RayAt(ray, res.t);
-                //vec3 random_offset = RandomUnitVec3(p*iTime);
-                //ray = Ray(p, res.normal+random_offset);
                 ray = scattered;
             }
             else return vec3(0.0); // ray fully absorbed
@@ -342,6 +384,7 @@ void Initialize() {
     vec3 w = normalize(lookfrom - lookat);
     vec3 u = normalize(cross(vup, w));
     vec3 v = cross(w, u);
+
 
     // Calculate the vectors across the horizontal and down the vertical viewport edges.
     vec3 viewport_u = viewport_width * u;    // Vector across viewport horizontal edge

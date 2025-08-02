@@ -7,9 +7,9 @@ struct CameraControl {
     float yaw = 0.0f;
     float pitch = 0.0f;
     float mouseSensitivity = 0.005;
-    float speed = 3.0;
+    float speed = 13.0;
 
-    Vector3 Position = Vector3{0.0, 0.0, -3.0};
+    Vector3 Position = Vector3{0.0, 1.0, -3.0};
     Vector3 vup = Vector3{0.0, 1.0, 0.0};
 
     // counts frames. When camera is modified gets resets, so the accumulation starts again
@@ -87,15 +87,22 @@ struct CameraControl {
 
         Position += Velocity*speed;
         if (Velocity != Vector3{0.0}) RestartAccum();
+
+        // otherwise shader crashes
+        Position.x = Clamp(Position.x, -100, 100);
+        Position.y = Clamp(Position.y, -100, 100);
+        Position.z = Clamp(Position.z, -100, 100);
     }
 
     void UpdateForward() {
-        Vector2 mouseDelta = GetMouseDelta();
-        yaw   -= mouseDelta.x * mouseSensitivity;
-        pitch -= mouseDelta.y * mouseSensitivity;
-        pitch = Clamp(pitch, -M_PI/2*0.9, M_PI/2*0.9);
-
-        if (mouseDelta.x != 0.0 || mouseDelta.y != 0.0) RestartAccum();
+        if (GetTime() > 0.2) {
+            Vector2 mouseDelta = GetMouseDelta();
+            yaw   -= mouseDelta.x * mouseSensitivity;
+            pitch -= mouseDelta.y * mouseSensitivity;
+            pitch = Clamp(pitch, -M_PI/2*0.9, M_PI/2*0.9);
+    
+            if (mouseDelta.x != 0.0 || mouseDelta.y != 0.0) RestartAccum();
+        }
     }
 
     void ApplyUniforms(Shader& shader) {

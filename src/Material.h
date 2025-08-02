@@ -7,18 +7,22 @@
 #define METAL      1
 #define DIELECTRIC 2
 
+Vector3 FromColor(Color color) {
+    return Vector3{int(color.r)/255.f, int(color.g)/255.f, int(color.b)/255.f};
+}
+
 struct Mat {
-    Color albedo;
+    Vector3 albedo;
     int mat_type;
+    int tex_id;
     float fuzz; // for metalic
     float refraction_index; // for dielectric
 
     Mat() {}
 
-    Mat(Color _albedo, int _mat_type, float _fuzz, float _refraction_index) :
-    albedo(_albedo), mat_type(_mat_type), fuzz(_fuzz), refraction_index(_refraction_index) {}
-};
+    Mat(Color _albedo, int _mat_type, int _tex_id, float _fuzz, float _refraction_index) :
+    albedo(FromColor(_albedo)), mat_type(_mat_type), tex_id(_tex_id), fuzz(_fuzz), refraction_index(_refraction_index) {}
 
-Vector3 FromColor(Color color) {
-    return Vector3{int(color.r)/255.f, int(color.g)/255.f, int(color.b)/255.f};
-}
+    Mat(Vector3 _albedo, int _mat_type, int _tex_id, float _fuzz, float _refraction_index) :
+    albedo(_albedo), mat_type(_mat_type), tex_id(_tex_id), fuzz(_fuzz), refraction_index(_refraction_index) {}
+};
