@@ -23,7 +23,7 @@ public:
 
         //objects[0] = Hittable::Sphere(Vector3{0.0, -1000.5, 0.0}, 1000, 0);
         //objects[1] = Hittable::Sphere(Vector3{0.0, 1.0, 0.0}, 1, 1);
-        objects[1] = Hittable::Quad(Vector3{0.0, 0.0, 0.0}, Vector3{1.0, 0.0, 0.0}, Vector3{0.0, 0.0, 1.0}, 1);
+        objects[1] = Hittable::Plane(Vector3{0.0, 0.0, 0.0}, Vector3{1.0, 0.0, 0.0}, Vector3{0.0, 0.0, 1.0}, 1);
     }
 
     void ApplyUniforms(Shader& shader) {

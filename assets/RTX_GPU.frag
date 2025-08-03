@@ -324,23 +324,38 @@ HitResult PlaneHit(int obj_id, Ray r) {
     vec3 u = u_b[obj_id];
     vec3 v = u_c[obj_id];
 
-    vec3 normal = normalize(cross(u, v));
+    vec3 n = cross(u, v);
+    vec3 normal = normalize(n);
     float D = dot(normal, Q);
-    
-    // finding intersection with plane
-    float denom = dot(normal, r.direction);
+    vec3 w = n / dot(n,n);
 
     HitResult res;
     res.t = -1.0;
-    // No hit if the ray is parallel to the plane.
-    if (abs(denom) < 1e-8) return res;
-    
-    float t = (D - dot(normal, r.origin)) / denom;
 
-    res.hit_pos = RayAt(r, t);
-    res.normal = normal;
-    res.mat_id = u_mat_id[obj_id];
+    float denom = dot(normal, r.direction);
+
+    // No hit if the ray is parallel to the plane.
+    if (abs(denom) < 1e-8) {
+        return res;
+    }
+
+    // Return false if the hit point parameter t is outside the ray interval.
+    float t = (D - dot(normal, r.origin)) / denom;
+    if (t < 0.001) return res;
+
+    // Determine if the hit point lies within the planar shape using its plane coordinates.
+    vec3 intersection = RayAt(r, t);
+    vec3 planar_hitpt_vector = intersection - Q;
+    float alpha = dot(w, cross(planar_hitpt_vector, v));
+    float beta = dot(w, cross(u, planar_hitpt_vector));
+
+    //if (alpha < 0 || alpha > 1 || beta < 0 || beta > 1) return res;
+
+    // Ray hits the 2D shape; set the rest of the hit record and return true.
     res.t = t;
+    res.hit_pos = intersection;
+    res.mat_id = u_mat_id[obj_id];;
+    res.uv = vec2(alpha, beta);
     SetFaceNormal(r, normal, res);
 
     return res;
