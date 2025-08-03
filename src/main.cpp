@@ -12,15 +12,10 @@
 
 Shader shader;
 
-std::shared_ptr<CameraControl> camera;
 std::shared_ptr<World> world;
 std::vector<Texture2D> textures;
 
-bool only_normals = false;
 bool show_info = false;
-
-
-float runTime = 0.f;
 
 void TakeTimestampedScreenshot() {
     time_t now = time(NULL);
@@ -44,15 +39,14 @@ int main() {
     }
 
     while (!WindowShouldClose()) {
-        camera->UpdatePosition();
-        camera->UpdateForward();
+        world->Update();
 
         HandleInput();
     
-        ApplyUniforms();
+        world->ApplyUniforms(shader);
+        world->GetCamera()->DrawToBuffer(shader, textures);
 
         DrawScreen();
-        runTime += GetFrameTime();
     }
     CloseWindow();
     return 0;
@@ -68,20 +62,9 @@ bool Init() {
 
     LoadTextures();
 
-    /*
-    std::string fragCode = LoadShaderRecursive("assets/RTX_GPU.f");
-    WriteToFile(fragCode, "assets/final.frag");
-    shader = LoadShaderFromMemory(nullptr, fragCode.c_str());
-    */
     shader = LoadShader(0, "assets/RTX_GPU.frag");
-    camera = std::make_shared<CameraControl>(3840/4, 2160/4);\
-
-    camera->vfov     = 20;
-    camera->Position = Vector3{26,3,6};
-    camera->yaw   = M_PI*1.41;
 
     world = std::make_shared<World>();
-    world->ApplyUniforms(shader);
 
     Texture2D shapes_texture = { rlGetTextureIdDefault(), 1, 1, 1, PIXELFORMAT_UNCOMPRESSED_R8G8B8A8 };
     SetShapesTexture(shapes_texture, (Rectangle){ 0.0f, 0.0f, 1.0f, 1.0f });
@@ -102,45 +85,22 @@ void HandleInput()
     if (IsKeyPressed(KEY_F11)) {
         ToggleBorderlessWindowed();
     }
-    if (IsKeyPressed(KEY_N)) {
-        only_normals = !only_normals;
-        camera->RestartAccum();
-    }
-    if (IsKeyPressed(KEY_UP)) {
-        camera->NewResolution(camera->GetRenderWith()*2, camera->GetRenderHeight()*2);
-    }
-    if (IsKeyPressed(KEY_DOWN)) {
-        camera->NewResolution(camera->GetRenderWith()/2, camera->GetRenderHeight()/2);
-    }
     if (IsKeyDown(KEY_ENTER)) {
         TakeTimestampedScreenshot();
     }
     if (IsKeyPressed(KEY_I)) {
         show_info = !show_info;
-        camera->RestartAccum();
+        world->GetCamera()->RestartAccum();
     }
-}
-
-void ApplyUniforms() {
-    SetShaderValue(shader, GetShaderLocation(shader, "iTime"), &runTime, SHADER_UNIFORM_FLOAT);
-    float Resolution[2] = {
-        float(camera->GetRenderWith()),
-        float(camera->GetRenderHeight())
-    };
-    SetShaderValue(shader, GetShaderLocation(shader, "iResolution"), &Resolution, SHADER_UNIFORM_VEC2);
-    int ionly_normals = only_normals ? 1 : 0;
-    SetShaderValue(shader, GetShaderLocation(shader, "ionly_normals"), &ionly_normals, SHADER_UNIFORM_INT);
-    camera->ApplyUniforms(shader);
-    camera->DrawToBuffer(shader, textures);
 }
 
 void DrawScreen() {
     BeginDrawing();
-    camera->DrawFromBuffer();
+    world->GetCamera()->DrawFromBuffer();
     if (show_info) {
         DrawRectangle(0, 0, 800, 200, GRAY);
         DrawText(TextFormat("FPS: %i", GetFPS()), 10, 10, 64, WHITE);
-        DrawText(TextFormat("Resolution: %i, %i", camera->GetRenderWith(), camera->GetRenderHeight()), 10, 84, 64, WHITE);
+        DrawText(TextFormat("Resolution: %i, %i", world->GetCamera()->GetRenderWith(), world->GetCamera()->GetRenderHeight()), 10, 84, 64, WHITE);
     }
     EndDrawing();
 }

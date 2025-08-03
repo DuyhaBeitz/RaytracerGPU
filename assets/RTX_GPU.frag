@@ -24,7 +24,8 @@ vec3 pixel00_loc;
 vec3 pixel_delta_u;
 vec3 pixel_delta_v;
 
-#define MAX_BOUNCES 100
+#define MAX_BOUNCES 32
+#define SAMPLES     4
 #define PI 3.14159265359
 #define EPSILON 0.00001
 
@@ -608,13 +609,12 @@ void main() {
     Initialize();
 
     vec3 col = vec3(0.0);
-    int samples = 100;
-    for (int i = 0; i < samples; ++i) {
-        vec2 offset = vec2(float(i) / float(samples), fract(sin(float(i)*13.37*iTime)));
+    for (int i = 0; i < SAMPLES; ++i) {
+        vec2 offset = vec2(float(i) / float(SAMPLES), fract(sin(float(i)*13.37*iTime)));
         Ray ray = getRay(fragTexCoord+offset*EPSILON);
         col += RayColor(ray);
     }
-    col /= float(samples);
+    col /= float(SAMPLES);
     
     // Gamma correction
     col = pow(col, vec3(1.0 / 2.0));

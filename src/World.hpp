@@ -9,34 +9,20 @@
 #include "Material.h"
 #include "Hittable.h"
 
+#include "CameraControl.hpp"
+
 #define MATERIAL_COUNT 5
 #define OBJECT_COUNT 4
 
 class World {
 public:
 
-    World() {
-        // mats[0] = Mat(YELLOW, LAMBERTIAN, -1, -1, 0.0, 0.0);
-        // mats[1] = Mat(GREEN, LAMBERTIAN, -1, -1, 0.0, 0.0);
-        // mats[2] = Mat(WHITE, METAL, -1, -1, 0.0, 0.0);
-        // mats[3] = Mat(WHITE, DIELECTRIC, -1, -1, 0.0, 1.5);
-
-        // objects[0] = Hittable::Sphere(Vector3{0.0, -1000.0, 0.0}, 1000, 0);
-        // objects[1] = Hittable::Sphere(Vector3{0.0, 1.0, 0.0}, 1, 1);
-        // //objects[1] = Hittable::Quad(Vector3{0.0, 0.0, 0.0}, Vector3{1.0, 0.0, 0.0}, Vector3{0.0, 0.0, 1.0}, 1);
-
-        // mats[0] = Mat(Vector3{0.3, 0.3, 0.3}, LAMBERTIAN, -1, -1, 0.0, 0.0);
-        // mats[1] = Mat(Vector3{1.0, 1.0, 1.0}, LAMBERTIAN, 0, -1, 0.0, 0.0);
-        // mats[2] = Mat(GREEN, LAMBERTIAN, -1, -1, 0.0, 0.0);
-        // mats[3] = Mat(Vector3{4.0, 4.0, 4.0}, DIFFUSE_LIGHT, -1, -1, 0.0, 0.0);
-
-        // objects[0] = Hittable::Plane(Vector3{}, Vector3{1.0, 0.0, 0.0}, Vector3{0.0, 0.0, 1.0}, 0);
-        // objects[1] = Hittable::Sphere(Vector3{0.0, 1.0, 0.0}, 1, 1);        
-        // objects[2] = Hittable::Quad(Vector3{0.0, 0.0, -4.0}, Vector3{-3.0, 2.0, 0.0}, Vector3{0.0, 0.0, 1.0}, 2);
-        // objects[3] = Hittable::Sphere(Vector3{0.0, 4.0, 0.0}, 1, 3);        
-        
-        //objects[2] = Hittable::Quad(Vector3{2.0, 0.5, -1.0}, Vector3{0.0, 1.0, 0.0}, Vector3{0.0, 0.0, 1.0}, 3);
-        //objects[3] = Hittable::Sphere(Vector3{0.0, 3.0, 0.0}, 1, 3);
+    World()
+    : camera(std::make_shared<CameraControl>(3840/4, 2160/4)) 
+    {
+        camera->vfov     = 20;
+        camera->Position = Vector3{26,3,6};
+        camera->yaw   = M_PI*1.41;
 
         // GROUND
         mats[0] = Mat(DARKGRAY, LAMBERTIAN, -1, -1, 0.0, 0.0);
@@ -54,15 +40,43 @@ public:
         objects[3] = Hittable::Sphere(Vector3{0, 7, 0}, 2, 2);        
     }
 
+    void Update() {
+        camera->UpdatePosition();
+        camera->UpdateForward();
+        HandleInput();
+
+        objects[1].a.x += GetFrameTime();
+        objects[3].a.y += sinf(runTime*30)/500;
+
+        runTime += GetFrameTime();
+    }
+
     void ApplyUniforms(Shader& shader) {
+
+        SetShaderValue(shader, GetShaderLocation(shader, "iTime"), &runTime, SHADER_UNIFORM_FLOAT);
+        float Resolution[2] = {
+            float(camera->GetRenderWith()),
+            float(camera->GetRenderHeight())
+        };
+        SetShaderValue(shader, GetShaderLocation(shader, "iResolution"), &Resolution, SHADER_UNIFORM_VEC2);
+        int ionly_normals = only_normals ? 1 : 0;
+        SetShaderValue(shader, GetShaderLocation(shader, "ionly_normals"), &ionly_normals, SHADER_UNIFORM_INT);
+        camera->ApplyUniforms(shader);
+
         ApplyMaterialUniforms(shader);
         ApplyObjectUniforms(shader);
     }
+
+    std::shared_ptr<CameraControl> GetCamera() { return camera; }
 
 private:
 
     Mat mats[MATERIAL_COUNT];
     Hittable objects[OBJECT_COUNT];
+    std::shared_ptr<CameraControl> camera;
+    
+    float runTime = 0.f;
+    bool only_normals = false;
 
     void ApplyMaterialUniforms(Shader& shader) {
         Vector3 u_albedo[MATERIAL_COUNT];
@@ -112,4 +126,18 @@ private:
         SetShaderValueV(shader, GetShaderLocation(shader, "u_b"), &u_b[0].x, SHADER_UNIFORM_VEC3, MATERIAL_COUNT);
         SetShaderValueV(shader, GetShaderLocation(shader, "u_c"), &u_c[0].x, SHADER_UNIFORM_VEC3, MATERIAL_COUNT);
     }
+
+    void HandleInput() {
+        if (IsKeyPressed(KEY_N)) {
+            only_normals = !only_normals;
+            camera->RestartAccum();
+        }
+        if (IsKeyPressed(KEY_UP)) {
+            camera->NewResolution(camera->GetRenderWith()*2, camera->GetRenderHeight()*2);
+        }
+        if (IsKeyPressed(KEY_DOWN)) {
+            camera->NewResolution(camera->GetRenderWith()/2, camera->GetRenderHeight()/2);
+        }
+    }
+
 };
