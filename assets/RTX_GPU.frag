@@ -8,9 +8,9 @@ uniform float iTime;
 uniform vec2 iResolution;
 
 // Camera
-float vfov    = 90;            // Vertical view angle (field of view)
-float defocus_angle = 0.3;  // Variation angle of rays through each pixel
-float focus_dist = 0.5;
+uniform float vfov    = 90;            // Vertical view angle (field of view)
+uniform float defocus_angle = 0.3;  // Variation angle of rays through each pixel
+uniform float focus_dist = 0.5;
 uniform vec3 lookfrom = vec3(0,0,0);   // Point camera is looking from
 uniform vec3 lookat   = vec3(0,0,-1);  // Point camera is looking at
 vec3 vup              = vec3(0,1,0);   // Camera-relative "up" direction
@@ -24,16 +24,18 @@ vec3 pixel00_loc;
 vec3 pixel_delta_u;
 vec3 pixel_delta_v;
 
-#define MAX_BOUNCES 32
+#define MAX_BOUNCES 100
 #define PI 3.14159265359
+#define EPSILON 0.00001
 
-#define MATERIAL_COUNT 4
-#define OBJECT_COUNT 2
+#define MATERIAL_COUNT 5
+#define OBJECT_COUNT 4
 
 // Material types
-#define LAMBERTIAN 0
-#define METAL      1
-#define DIELECTRIC 2
+#define LAMBERTIAN    0
+#define METAL         1
+#define DIELECTRIC    2
+#define DIFFUSE_LIGHT 3
 
 // A single iteration of Bob Jenkins' One-At-A-Time hashing algorithm.
 uint hash( uint x ) {
@@ -121,28 +123,17 @@ float cubicNoise(vec3 at) {
 
 /*************************************************************************************/
 
-// Bad distribution, elongated shadows
-vec3 WrongRandomUnitVec3(vec3 seed) {
-    return normalize(vec3(random(seed), random(3*seed), random(7*seed)));
-
-    while (true) {
-        vec3 vec = vec3(random(seed.x), random(seed.y), random(seed.z));
-        if (length(vec) <= 1.0 && length(vec) > 0.01) return normalize(vec);
-        // since random is deterministic here, without offsetting the loop can go indefinitly
-        seed.x += random(seed.x)-0.5;
-        seed.y += random(seed.y)-0.5;
-        seed.z += random(seed.z)-0.5;
-    }
+float rand(in vec2 co) {
+    return fract(sin(dot(co, vec2(12.9898,78.233))) * 43758.5453);
 }
 
-// More unifrom distribution, circle shadows
-vec3 RandomUnitVec3(vec3 seed) {
-    vec3 rand = WrongRandomUnitVec3(seed);
-    rand.z *= -1;
-    rand.x *= -1;
-    rand *= 0.5;
-    rand += WrongRandomUnitVec3(seed*seed)*0.5;
-    return rand;
+// 3D uniformly distributed random unit vector from a vec2 seed
+vec3 randomUnitVector(vec2 seed) {
+    float z = rand(seed * 1.0) * 2.0 - 1.0; // z ∈ [-1, 1]
+    float a = rand(seed * 2.0) * 6.2831853; // angle θ ∈ [0, 2π]
+    float r = sqrt(1.0 - z * z);            // radius at height z
+
+    return vec3(r * cos(a), r * sin(a), z); // spherical to Cartesian
 }
 
 vec3 RandomUnitDisk(vec3 seed) {
@@ -198,12 +189,13 @@ vec3 RayAt(Ray ray, float t) {
 }
 
 bool Vec3NearZero(in vec3 v) {
-    return abs(v.x) < 0.0001 && abs(v.y) < 0.0001 && abs(v.z) < 0.0001;
+    return abs(v.x) < 0.0000001 && abs(v.y) < 0.0000001 && abs(v.z) < 0.0000001;
 }
 
 uniform vec3 u_albedo[MATERIAL_COUNT];
 uniform int u_mat_type[MATERIAL_COUNT];
 uniform int u_tex_id[MATERIAL_COUNT];
+uniform int u_emit_tex_id[MATERIAL_COUNT];
 uniform float u_fuzz[MATERIAL_COUNT];
 uniform float u_refraction_index[MATERIAL_COUNT];
 
@@ -290,6 +282,19 @@ vec3 MatColor(int mat_id, vec2 uv, inout vec3 point) {
     else return CheckerPattern(point, u_albedo[mat_id]);
 }
 
+vec3 EmitColor(int mat_id, vec2 uv, inout vec3 point) {
+    int emit_tex_id = u_emit_tex_id[mat_id];
+    if (emit_tex_id < 0) {
+        if (u_mat_type[mat_id] == DIFFUSE_LIGHT) return u_albedo[mat_id];
+        return vec3(0.0);
+    }
+    else {
+        return GetTextureColor(uv, emit_tex_id).rgb;
+    }    
+    return vec3(0.0);
+}
+
+
 HitResult HitSphere(int obj_id, Ray r) {
 
     vec3 center = u_a[obj_id];
@@ -341,15 +346,13 @@ HitResult PlaneHit(int obj_id, Ray r) {
 
     // Return false if the hit point parameter t is outside the ray interval.
     float t = (D - dot(normal, r.origin)) / denom;
-    if (t < 0.001) return res;
+    if (t < EPSILON) return res;
 
     // Determine if the hit point lies within the planar shape using its plane coordinates.
     vec3 intersection = RayAt(r, t);
     vec3 planar_hitpt_vector = intersection - Q;
     float alpha = dot(w, cross(planar_hitpt_vector, v));
     float beta = dot(w, cross(u, planar_hitpt_vector));
-
-    //if (alpha < 0 || alpha > 1 || beta < 0 || beta > 1) return res;
 
     // Ray hits the 2D shape; set the rest of the hit record and return true.
     res.t = t;
@@ -385,7 +388,7 @@ HitResult QuadHit(int obj_id, Ray r) {
 
     // Return false if the hit point parameter t is outside the ray interval.
     float t = (D - dot(normal, r.origin)) / denom;
-    if (t < 0.001) return res;
+    if (t < EPSILON) return res;
 
     // Determine if the hit point lies within the planar shape using its plane coordinates.
     vec3 intersection = RayAt(r, t);
@@ -428,7 +431,7 @@ HitResult HitWorld(Ray ray) {
     bool hit_any = false;
     for (int i = 0; i < OBJECT_COUNT; i++) {
         HitResult new_res = AbstractHit(i, ray);
-        if (new_res.t >= 0.001) {
+        if (new_res.t >= EPSILON) {
             if (new_res.t < result.t || result.t == -1.0) {
                 result = new_res;
             }
@@ -439,7 +442,9 @@ HitResult HitWorld(Ray ray) {
 }
 
 bool LambertianScatter(inout Ray r_in, inout HitResult rec, inout vec3 attenuation, inout Ray scattered) {
-    vec3 scatter_direction = rec.normal + RandomUnitVec3(rec.hit_pos*iTime);
+    //vec3 scatter_direction = rec.normal + RandomUnitVec3(rec.hit_pos*iTime);
+    //vec3 scatter_direction = rec.normal + WrongRandomUnitVec3(rec.hit_pos*iTime);
+    vec3 scatter_direction = rec.normal + randomUnitVector(rec.hit_pos.xy*iTime);
 
     // Catch degenerate scatter direction
     if (Vec3NearZero(scatter_direction)) scatter_direction = rec.normal;
@@ -452,7 +457,7 @@ bool LambertianScatter(inout Ray r_in, inout HitResult rec, inout vec3 attenuati
 
 bool MetalScatter(inout Ray r_in, inout HitResult rec, inout vec3 attenuation, inout Ray scattered) {
     vec3 reflected = reflect(r_in.direction, rec.normal);
-    reflected += u_fuzz[rec.mat_id] + RandomUnitVec3(rec.hit_pos*iTime);
+    reflected += u_fuzz[rec.mat_id] + randomUnitVector(rec.hit_pos.xy*iTime);
     scattered = Ray(rec.hit_pos, reflected);
     attenuation = MatColor(rec.mat_id, rec.uv, rec.hit_pos);
     return dot(scattered.direction, rec.normal) > 0;
@@ -496,6 +501,9 @@ bool Scatter(inout Ray r_in, inout HitResult rec, inout vec3 attenuation, inout 
     else if (u_mat_type[rec.mat_id] == DIELECTRIC) {
         return DielectricScatter(r_in, rec, attenuation, scattered);
     }
+    else if (u_mat_type[rec.mat_id] == DIFFUSE_LIGHT) {
+        return false;
+    }
     return false;
 }
 
@@ -506,32 +514,51 @@ vec3 SkyColor(Ray ray) {
     return (1.0-a)*vec3(1.0, 1.0, 1.0) + a*vec3(0.5, 0.7, 1.0);
 }
 
+vec3 SkyEmit(Ray ray) {
+    return vec3(0.0);
+    vec3 unit_direction = normalize(ray.direction);
+    const vec3 sun_direction = normalize(vec3(1.0, 1.0, 0.0)); // directly overhead
+
+    float alignment = dot(unit_direction, sun_direction); // cosine of angle to sun
+    float intensity = smoothstep(0.98, 1.0, alignment);    // narrow bright spot
+
+    return mix(vec3(0.5), vec3(1.0), intensity);
+}
+
 vec3 RayColor(Ray ray) {
-    vec3 color = vec3(1.0);
+    vec3 color = vec3(0.0);
+    vec3 T = vec3(1.0);
     for (int bounce = 0; bounce < MAX_BOUNCES; bounce++) {
         HitResult res = HitWorld(ray);
         if (ionly_normals) {
-            if (res.t > 0.001) return (res.normal+1.0)/2.0;
+            if (res.t > EPSILON) return (res.normal+1.0)/2.0;
             return vec3(0.0);
         }
         
-        if (res.t > 0.001) {
+        if (res.t > EPSILON) {
             // scatter ray
             Ray scattered;
             vec3 attenuation;
             if (Scatter(ray, res, attenuation, scattered)) {
-                color *= attenuation;
                 ray = scattered;
+                color += T*EmitColor(res.mat_id, res.uv, res.hit_pos);
+                T *= attenuation;
+                //color += EmitColor(res.mat_id, res.uv, res.hit_pos);
             }
-            else return vec3(0.0); // ray fully absorbed
+            else {
+                color += EmitColor(res.mat_id, res.uv, res.hit_pos);
+                break;
+            }
         }
         else {
-            color *= SkyColor(ray);
+            color += SkyEmit(ray);
+            T *= SkyColor(ray);
             break;
         }
     }
     
-    return color;
+    return T*color;
+    //return color;
 }
 
 
@@ -581,10 +608,10 @@ void main() {
     Initialize();
 
     vec3 col = vec3(0.0);
-    int samples = 8;
+    int samples = 100;
     for (int i = 0; i < samples; ++i) {
         vec2 offset = vec2(float(i) / float(samples), fract(sin(float(i)*13.37*iTime)));
-        Ray ray = getRay(fragTexCoord+offset*0.001);
+        Ray ray = getRay(fragTexCoord+offset*EPSILON);
         col += RayColor(ray);
     }
     col /= float(samples);

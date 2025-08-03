@@ -9,21 +9,49 @@
 #include "Material.h"
 #include "Hittable.h"
 
-#define MATERIAL_COUNT 4
-#define OBJECT_COUNT 2
+#define MATERIAL_COUNT 5
+#define OBJECT_COUNT 4
 
 class World {
 public:
 
     World() {
-        mats[0] = Mat(Vector3{0.2, 0.8, 0.2}, LAMBERTIAN, -1, 0.0, 0.0);
-        mats[1] = Mat(Vector3{0.5, 0.5, 0.5}, LAMBERTIAN, 0, 0.0, 0.0);
-        mats[2] = Mat(WHITE, METAL, -1, 0.0, 0.0);
-        mats[3] = Mat(WHITE, DIELECTRIC, -1, 0.0, 1.5);
+        // mats[0] = Mat(YELLOW, LAMBERTIAN, -1, -1, 0.0, 0.0);
+        // mats[1] = Mat(GREEN, LAMBERTIAN, -1, -1, 0.0, 0.0);
+        // mats[2] = Mat(WHITE, METAL, -1, -1, 0.0, 0.0);
+        // mats[3] = Mat(WHITE, DIELECTRIC, -1, -1, 0.0, 1.5);
 
-        //objects[0] = Hittable::Sphere(Vector3{0.0, -1000.5, 0.0}, 1000, 0);
-        //objects[1] = Hittable::Sphere(Vector3{0.0, 1.0, 0.0}, 1, 1);
-        objects[1] = Hittable::Plane(Vector3{0.0, 0.0, 0.0}, Vector3{1.0, 0.0, 0.0}, Vector3{0.0, 0.0, 1.0}, 1);
+        // objects[0] = Hittable::Sphere(Vector3{0.0, -1000.0, 0.0}, 1000, 0);
+        // objects[1] = Hittable::Sphere(Vector3{0.0, 1.0, 0.0}, 1, 1);
+        // //objects[1] = Hittable::Quad(Vector3{0.0, 0.0, 0.0}, Vector3{1.0, 0.0, 0.0}, Vector3{0.0, 0.0, 1.0}, 1);
+
+        // mats[0] = Mat(Vector3{0.3, 0.3, 0.3}, LAMBERTIAN, -1, -1, 0.0, 0.0);
+        // mats[1] = Mat(Vector3{1.0, 1.0, 1.0}, LAMBERTIAN, 0, -1, 0.0, 0.0);
+        // mats[2] = Mat(GREEN, LAMBERTIAN, -1, -1, 0.0, 0.0);
+        // mats[3] = Mat(Vector3{4.0, 4.0, 4.0}, DIFFUSE_LIGHT, -1, -1, 0.0, 0.0);
+
+        // objects[0] = Hittable::Plane(Vector3{}, Vector3{1.0, 0.0, 0.0}, Vector3{0.0, 0.0, 1.0}, 0);
+        // objects[1] = Hittable::Sphere(Vector3{0.0, 1.0, 0.0}, 1, 1);        
+        // objects[2] = Hittable::Quad(Vector3{0.0, 0.0, -4.0}, Vector3{-3.0, 2.0, 0.0}, Vector3{0.0, 0.0, 1.0}, 2);
+        // objects[3] = Hittable::Sphere(Vector3{0.0, 4.0, 0.0}, 1, 3);        
+        
+        //objects[2] = Hittable::Quad(Vector3{2.0, 0.5, -1.0}, Vector3{0.0, 1.0, 0.0}, Vector3{0.0, 0.0, 1.0}, 3);
+        //objects[3] = Hittable::Sphere(Vector3{0.0, 3.0, 0.0}, 1, 3);
+
+        // GROUND
+        mats[0] = Mat(DARKGRAY, LAMBERTIAN, -1, -1, 0.0, 0.0);
+        objects[0] = Hittable::Sphere(Vector3{0, -1000, 0}, 1000, 0);
+
+        // SPHERE
+        mats[1] = Mat(GRAY, LAMBERTIAN, 0, -1, 0.0, 1/1.3);
+        objects[1] = Hittable::Sphere(Vector3{0, 2, 0}, 2, 1);        
+
+        // LIGHT QUAD
+        mats[2] = Mat(Vector3{1.0, 1.0, 1.0}, DIFFUSE_LIGHT, -1, -1, 0.0, 0.0);
+        objects[2] = Hittable::Quad(Vector3{3, 1, -2}, Vector3{4, 0, 0}, Vector3{0, 4, 0}, 2);
+
+        // LIGHT SPHERE
+        objects[3] = Hittable::Sphere(Vector3{0, 7, 0}, 2, 2);        
     }
 
     void ApplyUniforms(Shader& shader) {
@@ -40,6 +68,7 @@ private:
         Vector3 u_albedo[MATERIAL_COUNT];
         int u_mat_type[MATERIAL_COUNT];
         int u_tex_id[MATERIAL_COUNT];
+        int u_emit_tex_id[MATERIAL_COUNT];
         float u_fuzz[MATERIAL_COUNT];
         float u_refraction_index[MATERIAL_COUNT];
 
@@ -49,6 +78,7 @@ private:
             u_albedo[i].z = mats[i].albedo.z;
             u_mat_type[i] = mats[i].mat_type;
             u_tex_id[i] = mats[i].tex_id;
+            u_emit_tex_id[i] = mats[i].emit_tex_id;
             u_fuzz[i] = mats[i].fuzz;
             u_refraction_index[i] = mats[i].refraction_index;
         }
@@ -56,6 +86,7 @@ private:
         SetShaderValueV(shader, GetShaderLocation(shader, "u_albedo"), &u_albedo[0].x, SHADER_UNIFORM_VEC3, MATERIAL_COUNT);
         SetShaderValueV(shader, GetShaderLocation(shader, "u_mat_type"), u_mat_type, SHADER_UNIFORM_INT, MATERIAL_COUNT);
         SetShaderValueV(shader, GetShaderLocation(shader, "u_tex_id"), u_tex_id, SHADER_UNIFORM_INT, MATERIAL_COUNT);
+        SetShaderValueV(shader, GetShaderLocation(shader, "u_emit_tex_id"), u_emit_tex_id, SHADER_UNIFORM_INT, MATERIAL_COUNT);
         SetShaderValueV(shader, GetShaderLocation(shader, "u_fuzz"), u_fuzz, SHADER_UNIFORM_FLOAT, MATERIAL_COUNT);
         SetShaderValueV(shader, GetShaderLocation(shader, "u_refraction_index"), u_refraction_index, SHADER_UNIFORM_FLOAT, MATERIAL_COUNT);
     }

@@ -9,6 +9,11 @@ struct CameraControl {
     float pitch = 0.0f;
     float mouseSensitivity = 0.005;
     float speed = 13.0;
+    float vfov = 90.0;
+    float defocus_angle = 0.0;
+    float focus_dist = 0.5;
+
+    bool updating = false;
 
     Vector3 Position = Vector3{0.0, 1.0, -3.0};
     Vector3 vup = Vector3{0.0, 1.0, 0.0};
@@ -45,18 +50,21 @@ struct CameraControl {
     }
 
     void DrawFromBuffer() {
-        accumAlpha = 1.0f / (accumFrameCount + 1); // Accumulation weight
-        BeginBlendMode(BLEND_ALPHA);
-        DrawTexturePro(
-            buffer.texture, 
-            Rectangle{0, 0, float(GetRenderWith()), -float(GetRenderHeight())},
-            Rectangle{0, 0, float(GetScreenWidth()), float(GetScreenHeight())},
-            Vector2{0.0},
-            0.f,
-            Fade(WHITE, accumAlpha)
-        );
-        EndBlendMode();
-        accumFrameCount++;
+        if (GetTime() > 0.2) {
+            accumAlpha = 1.0f / (accumFrameCount + 1); // Accumulation weight
+            BeginBlendMode(BLEND_ALPHA);
+            DrawTexturePro(
+                buffer.texture, 
+                Rectangle{0, 0, float(GetRenderWith()), -float(GetRenderHeight())},
+                Rectangle{0, 0, float(GetScreenWidth()), float(GetScreenHeight())},
+                Vector2{0.0},
+                0.f,
+                Fade(WHITE, accumAlpha)
+                //Fade(WHITE, 0.01)
+            );
+            EndBlendMode();
+            accumFrameCount++;
+        }
     }
 
     void RestartAccum() {
@@ -82,32 +90,36 @@ struct CameraControl {
     }
 
     void UpdatePosition() {
-        int df = IsKeyDown(KEY_W) - IsKeyDown(KEY_S);
-        int dr = IsKeyDown(KEY_D) - IsKeyDown(KEY_A);
-        int du = IsKeyDown(KEY_SPACE) - IsKeyDown(KEY_LEFT_CONTROL);
+        if (updating) {
+            int df = IsKeyDown(KEY_W) - IsKeyDown(KEY_S);
+            int dr = IsKeyDown(KEY_D) - IsKeyDown(KEY_A);
+            int du = IsKeyDown(KEY_SPACE) - IsKeyDown(KEY_LEFT_CONTROL);
+        
+            Vector3 Velocity = Vector3{0.0};
+            Velocity += GetForwardVector() * float(df) * GetFrameTime();
+            Velocity += GetRightVector() * float(dr) * GetFrameTime();
+            Velocity += vup * float(du) * GetFrameTime();
     
-        Vector3 Velocity = Vector3{0.0};
-        Velocity += GetForwardVector() * float(df) * GetFrameTime();
-        Velocity += GetRightVector() * float(dr) * GetFrameTime();
-        Velocity += vup * float(du) * GetFrameTime();
-
-        Position += Velocity*speed;
-        if (Velocity != Vector3{0.0}) RestartAccum();
-
-        // otherwise shader crashes
-        Position.x = Clamp(Position.x, -100, 100);
-        Position.y = Clamp(Position.y, -100, 100);
-        Position.z = Clamp(Position.z, -100, 100);
+            Position += Velocity*speed;
+            if (Velocity != Vector3{0.0}) RestartAccum();
+    
+            // otherwise shader crashes
+            Position.x = Clamp(Position.x, -100, 100);
+            Position.y = Clamp(Position.y, -100, 100);
+            Position.z = Clamp(Position.z, -100, 100);
+        }
     }
 
     void UpdateForward() {
-        if (GetTime() > 0.2) {
-            Vector2 mouseDelta = GetMouseDelta();
-            yaw   -= mouseDelta.x * mouseSensitivity;
-            pitch -= mouseDelta.y * mouseSensitivity;
-            pitch = Clamp(pitch, -M_PI/2*0.9, M_PI/2*0.9);
-    
-            if (mouseDelta.x != 0.0 || mouseDelta.y != 0.0) RestartAccum();
+        if (updating) {
+            if (GetTime() > 0.2) {
+                Vector2 mouseDelta = GetMouseDelta();
+                yaw   -= mouseDelta.x * mouseSensitivity;
+                pitch -= mouseDelta.y * mouseSensitivity;
+                pitch = Clamp(pitch, -M_PI/2*0.9, M_PI/2*0.9);
+        
+                if (mouseDelta.x != 0.0 || mouseDelta.y != 0.0) RestartAccum();
+            }
         }
     }
 
@@ -126,5 +138,9 @@ struct CameraControl {
             float(At.z)
         };
         SetShaderValue(shader, GetShaderLocation(shader, "lookat"), &Lookat, SHADER_UNIFORM_VEC3);
+
+        SetShaderValue(shader, GetShaderLocation(shader, "vfov"), &vfov, SHADER_UNIFORM_FLOAT);
+        SetShaderValue(shader, GetShaderLocation(shader, "defocus_angle"), &defocus_angle, SHADER_UNIFORM_FLOAT);
+        SetShaderValue(shader, GetShaderLocation(shader, "focus_dist"), &focus_dist, SHADER_UNIFORM_FLOAT);
     }
 };

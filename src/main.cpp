@@ -74,7 +74,11 @@ bool Init() {
     shader = LoadShaderFromMemory(nullptr, fragCode.c_str());
     */
     shader = LoadShader(0, "assets/RTX_GPU.frag");
-    camera = std::make_shared<CameraControl>(3840/4, 2160/4);
+    camera = std::make_shared<CameraControl>(3840/4, 2160/4);\
+
+    camera->vfov     = 20;
+    camera->Position = Vector3{26,3,6};
+    camera->yaw   = M_PI*1.41;
 
     world = std::make_shared<World>();
     world->ApplyUniforms(shader);
