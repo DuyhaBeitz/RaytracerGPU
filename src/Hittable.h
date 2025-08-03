@@ -4,6 +4,8 @@
 #include <raymath.h>
 
 #define SPHERE 0
+#define PLANE 1
+#define QUAD 2
 
 struct Hittable {
     int geometry_type;
@@ -19,6 +21,14 @@ struct Hittable {
     
     static Hittable Sphere(Vector3 _center, float _radius, int _material_id) {
         return Hittable(SPHERE, _material_id, _center, Vector3{_radius, 0.0, 0.0});
+    }
+
+    static Hittable Plane(Vector3 _Q, Vector3 _U, Vector3 _V, int _material_id) {
+        return Hittable(PLANE, _material_id, _Q, _U, _V);
+    }
+
+    static Hittable Quad(Vector3 _Q, Vector3 _U, Vector3 _V, int _material_id) {
+        return Hittable(QUAD, _material_id, _Q, _U, _V);
     }
 };
 

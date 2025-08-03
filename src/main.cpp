@@ -14,6 +14,7 @@ Shader shader;
 
 std::shared_ptr<CameraControl> camera;
 std::shared_ptr<World> world;
+std::vector<Texture2D> textures;
 
 bool only_normals = false;
 bool show_info = false;
@@ -31,6 +32,7 @@ void TakeTimestampedScreenshot() {
 }
 
 bool Init();
+void LoadTextures();
 void HandleInput();
 void ApplyUniforms();
 void DrawScreen();
@@ -57,12 +59,14 @@ int main() {
 }
 
 bool Init() {
-    InitWindow(0, 0, "RTX GPU");
+    InitWindow(500, 500, "RTX GPU");
     if (!IsWindowReady()) {
         return false;
     }
     ToggleBorderlessWindowed();
     DisableCursor();
+
+    LoadTextures();
 
     /*
     std::string fragCode = LoadShaderRecursive("assets/RTX_GPU.f");
@@ -81,8 +85,16 @@ bool Init() {
     return true;
 }
 
+void LoadTextures() {
+    textures.push_back(LoadTexture("assets/earthmap.png"));
+}
+
 void HandleInput()
 {
+    if (IsKeyPressed(KEY_L)) {
+        if (IsCursorHidden()) EnableCursor();
+        else DisableCursor();
+    }
     if (IsKeyPressed(KEY_F11)) {
         ToggleBorderlessWindowed();
     }
@@ -115,7 +127,7 @@ void ApplyUniforms() {
     int ionly_normals = only_normals ? 1 : 0;
     SetShaderValue(shader, GetShaderLocation(shader, "ionly_normals"), &ionly_normals, SHADER_UNIFORM_INT);
     camera->ApplyUniforms(shader);
-    camera->DrawToBuffer(shader);
+    camera->DrawToBuffer(shader, textures);
 }
 
 void DrawScreen() {

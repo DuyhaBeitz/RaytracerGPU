@@ -24,7 +24,7 @@ vec3 pixel00_loc;
 vec3 pixel_delta_u;
 vec3 pixel_delta_v;
 
-#define MAX_BOUNCES 4
+#define MAX_BOUNCES 32
 #define PI 3.14159265359
 
 #define MATERIAL_COUNT 4
@@ -49,6 +49,7 @@ uint hash( uint x ) {
 uint hash( uvec2 v ) { return hash( v.x ^ hash(v.y)                         ); }
 uint hash( uvec3 v ) { return hash( v.x ^ hash(v.y) ^ hash(v.z)             ); }
 uint hash( uvec4 v ) { return hash( v.x ^ hash(v.y) ^ hash(v.z) ^ hash(v.w) ); }
+
 /*************************************************************************************/
 
 
@@ -70,6 +71,54 @@ float random( float x ) { return floatConstruct(hash(floatBitsToUint(x))); }
 float random( vec2  v ) { return floatConstruct(hash(floatBitsToUint(v))); }
 float random( vec3  v ) { return floatConstruct(hash(floatBitsToUint(v))); }
 float random( vec4  v ) { return floatConstruct(hash(floatBitsToUint(v))); }
+
+
+
+
+
+
+
+
+
+float interpolate(float a, float b, float c, float d, float x) {
+    float p = (d - c) - (a - b);
+    
+    return x * (x * (x * p + ((a - b) - p)) + (c - a)) + b;
+}
+
+float sampleX(vec3 at) {
+    float floored = floor(at.x);
+    
+    return interpolate(
+        random(vec3(floored - 1.0, at.yz)),
+        random(vec3(floored, at.yz)),
+        random(vec3(floored + 1.0, at.yz)),
+        random(vec3(floored + 2.0, at.yz)),
+    	at.x - floored) * 0.5 + 0.25;
+}
+
+float sampleY(vec3 at) {
+    float floored = floor(at.y);
+    
+    return interpolate(
+        sampleX(vec3(at.x, floored - 1.0, at.z)),
+        sampleX(vec3(at.x, floored, at.z)),
+        sampleX(vec3(at.x, floored + 1.0, at.z)),
+        sampleX(vec3(at.x, floored + 2.0, at.z)),
+        at.y - floored);
+}
+
+float cubicNoise(vec3 at) {
+    float floored = floor(at.z);
+    
+    return interpolate(
+        sampleY(vec3(at.xy, floored - 1.0)),
+        sampleY(vec3(at.xy, floored)),
+        sampleY(vec3(at.xy, floored + 1.0)),
+        sampleY(vec3(at.xy, floored + 2.0)),
+        at.z - floored);
+}
+
 /*************************************************************************************/
 
 // Bad distribution, elongated shadows
@@ -159,6 +208,9 @@ uniform float u_fuzz[MATERIAL_COUNT];
 uniform float u_refraction_index[MATERIAL_COUNT];
 
 #define SPHERE 0
+#define PLANE 1
+#define QUAD 2
+
 uniform int u_geometry_type[OBJECT_COUNT];
 uniform int u_mat_id[OBJECT_COUNT];
 uniform vec3 u_a[OBJECT_COUNT]; // center for spheres
@@ -202,6 +254,21 @@ vec4 GetTextureColor(vec2 uv, int tex_id) {
     return texture2D(tex0, uv);
 }
 
+vec2 SphereUV(vec3 p) {
+    // p: a given point on the sphere of radius one, centered at the origin.
+    // p can also be outward normal for arbitrary sphere
+    // u: returned value [0,1] of angle around the Y axis from X=-1.
+    // v: returned value [0,1] of angle from Y=-1 to Y=+1.
+    //     <1 0 0> yields <0.50 0.50>       <-1  0  0> yields <0.00 0.50>
+    //     <0 1 0> yields <0.50 1.00>       < 0 -1  0> yields <0.50 0.00>
+    //     <0 0 1> yields <0.25 0.50>       < 0  0 -1> yields <0.75 0.50>
+
+    float theta = acos(-p.y);
+    float phi = atan(-p.z, p.x) + PI;
+
+    return vec2(phi / (2*PI), theta / PI);
+}
+
 vec3 CheckerPattern(in vec3 point, vec3 color) {
     int xInteger = int(floor(point.x));
     int yInteger = int(floor(point.y));
@@ -223,7 +290,7 @@ vec3 MatColor(int mat_id, vec2 uv, inout vec3 point) {
     else return CheckerPattern(point, u_albedo[mat_id]);
 }
 
-HitResult hit_sphere(int obj_id, Ray r) {
+HitResult HitSphere(int obj_id, Ray r) {
 
     vec3 center = u_a[obj_id];
     float radius = u_b[obj_id].x;
@@ -245,26 +312,107 @@ HitResult hit_sphere(int obj_id, Ray r) {
     res.hit_pos = RayAt(r, res.t);
     vec3 normal = normalize(RayAt(r, res.t) - center);
     SetFaceNormal(r, normal, res);
+
+    res.uv = SphereUV(normal);
     return res;
 }
 
-HitResult abstract_hit(int obj_id, Ray r) {
+HitResult PlaneHit(int obj_id, Ray r) {
+    
+    // finding plane
+    vec3 Q = u_a[obj_id];
+    vec3 u = u_b[obj_id];
+    vec3 v = u_c[obj_id];
+
+    vec3 normal = normalize(cross(u, v));
+    float D = dot(normal, Q);
+    
+    // finding intersection with plane
+    float denom = dot(normal, r.direction);
+
+    HitResult res;
+    res.t = -1.0;
+    // No hit if the ray is parallel to the plane.
+    if (abs(denom) < 1e-8) return res;
+    
+    float t = (D - dot(normal, r.origin)) / denom;
+
+    res.hit_pos = RayAt(r, t);
+    res.normal = normal;
+    res.mat_id = u_mat_id[obj_id];
+    res.t = t;
+    SetFaceNormal(r, normal, res);
+
+    return res;
+}
+
+HitResult QuadHit(int obj_id, Ray r) {
+    
+    // finding plane
+    vec3 Q = u_a[obj_id];
+    vec3 u = u_b[obj_id];
+    vec3 v = u_c[obj_id];
+
+    vec3 n = cross(u, v);
+    vec3 normal = normalize(n);
+    float D = dot(normal, Q);
+    vec3 w = n / dot(n,n);
+
+    HitResult res;
+    res.t = -1.0;
+
+    float denom = dot(normal, r.direction);
+
+    // No hit if the ray is parallel to the plane.
+    if (abs(denom) < 1e-8) {
+        return res;
+    }
+
+    // Return false if the hit point parameter t is outside the ray interval.
+    float t = (D - dot(normal, r.origin)) / denom;
+    if (t < 0.001) return res;
+
+    // Determine if the hit point lies within the planar shape using its plane coordinates.
+    vec3 intersection = RayAt(r, t);
+    vec3 planar_hitpt_vector = intersection - Q;
+    float alpha = dot(w, cross(planar_hitpt_vector, v));
+    float beta = dot(w, cross(u, planar_hitpt_vector));
+
+    if (alpha < 0 || alpha > 1 || beta < 0 || beta > 1) return res;
+
+    // Ray hits the 2D shape; set the rest of the hit record and return true.
+    res.t = t;
+    res.hit_pos = intersection;
+    res.mat_id = u_mat_id[obj_id];;
+    res.uv = vec2(alpha, beta);
+    SetFaceNormal(r, normal, res);
+
+    return res;
+}
+
+HitResult AbstractHit(int obj_id, Ray r) {
     if (u_geometry_type[obj_id] == SPHERE) {
-        return hit_sphere(obj_id, r);
+        return HitSphere(obj_id, r);
+    }
+    if (u_geometry_type[obj_id] == QUAD) {
+        return QuadHit(obj_id, r);
+    }
+    if (u_geometry_type[obj_id] == PLANE) {
+        return PlaneHit(obj_id, r);
     }
     HitResult res;
     res.t = -1.0;
     return res;
 }
 
-HitResult hit_world(Ray ray) {
+HitResult HitWorld(Ray ray) {
     HitResult result;
     result.t = -1.0; // by default no hit
 
 
     bool hit_any = false;
     for (int i = 0; i < OBJECT_COUNT; i++) {
-        HitResult new_res = abstract_hit(i, ray);
+        HitResult new_res = AbstractHit(i, ray);
         if (new_res.t >= 0.001) {
             if (new_res.t < result.t || result.t == -1.0) {
                 result = new_res;
@@ -346,7 +494,7 @@ vec3 SkyColor(Ray ray) {
 vec3 RayColor(Ray ray) {
     vec3 color = vec3(1.0);
     for (int bounce = 0; bounce < MAX_BOUNCES; bounce++) {
-        HitResult res = hit_world(ray);
+        HitResult res = HitWorld(ray);
         if (ionly_normals) {
             if (res.t > 0.001) return (res.normal+1.0)/2.0;
             return vec3(0.0);
@@ -415,14 +563,10 @@ Ray getRay(vec2 viewport_coord) {
 
 
 void main() {
-    vec2 uv = fragTexCoord / iResolution;
-    uv = 2.0 * uv - 1.0;
-    uv.x *= iResolution.x / iResolution.y;
-
     Initialize();
 
     vec3 col = vec3(0.0);
-    int samples = 3;
+    int samples = 8;
     for (int i = 0; i < samples; ++i) {
         vec2 offset = vec2(float(i) / float(samples), fract(sin(float(i)*13.37*iTime)));
         Ray ray = getRay(fragTexCoord+offset*0.001);
@@ -433,4 +577,14 @@ void main() {
     // Gamma correction
     col = pow(col, vec3(1.0 / 2.0));
     FragColor = vec4(col, 1.0);
+
+    // test texture
+
+    //FragColor = texture2D(tex0, fragTexCoord);
+
+
+    // test noise
+
+    // float a = cubicNoise(vec3(fragTexCoord*100, 0.0));
+    // FragColor = vec4(vec3(a), 1.0);
 }

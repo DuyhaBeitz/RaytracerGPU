@@ -2,6 +2,7 @@
 
 #include <raylib.h>
 #include <raymath.h>
+#include <vector>
 
 struct CameraControl {
     float yaw = 0.0f;
@@ -30,12 +31,17 @@ struct CameraControl {
         buffer = LoadRenderTexture(render_width, render_height);
     }
 
-    void DrawToBuffer(Shader& shader) {
+    void DrawToBuffer(Shader& shader, std::vector<Texture2D>& textures) {
         BeginTextureMode(buffer);
             BeginShaderMode(shader);
+                ApplyTextureUniforms(shader, textures);
                 DrawRectangle(0, 0, GetRenderWith(), GetRenderHeight(), Fade(WHITE, 1.0));
             EndShaderMode();
         EndTextureMode();
+    }
+
+    void ApplyTextureUniforms(Shader& shader, std::vector<Texture2D>& textures) {
+        SetShaderValueTexture(shader, GetShaderLocation(shader, "tex0"), textures[0]);
     }
 
     void DrawFromBuffer() {

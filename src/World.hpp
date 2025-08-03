@@ -16,13 +16,14 @@ class World {
 public:
 
     World() {
-        mats[0] = Mat(Vector3{0.8, 0.8, 0.8}, LAMBERTIAN, -1, 0.0, 0.0);
-        mats[1] = Mat(Vector3{0.8, 0.8, 0.8}, LAMBERTIAN, -1, 0.0, 0.0);
+        mats[0] = Mat(Vector3{0.2, 0.8, 0.2}, LAMBERTIAN, -1, 0.0, 0.0);
+        mats[1] = Mat(Vector3{0.5, 0.5, 0.5}, LAMBERTIAN, 0, 0.0, 0.0);
         mats[2] = Mat(WHITE, METAL, -1, 0.0, 0.0);
         mats[3] = Mat(WHITE, DIELECTRIC, -1, 0.0, 1.5);
 
-        objects[0] = Hittable::Sphere(Vector3{0.0, -1000.0, 0.0}, 1000, 0);
-        objects[1] = Hittable::Sphere(Vector3{0.0, 1.0, 0.0}, 1, 1);
+        //objects[0] = Hittable::Sphere(Vector3{0.0, -1000.5, 0.0}, 1000, 0);
+        //objects[1] = Hittable::Sphere(Vector3{0.0, 1.0, 0.0}, 1, 1);
+        objects[1] = Hittable::Quad(Vector3{0.0, 0.0, 0.0}, Vector3{1.0, 0.0, 0.0}, Vector3{0.0, 0.0, 1.0}, 1);
     }
 
     void ApplyUniforms(Shader& shader) {
