@@ -520,23 +520,26 @@ bool Scatter(inout Ray r_in, inout HitResult rec, inout vec3 attenuation, inout 
 }
 
 vec3 SkyColor(Ray ray) {
+    //return vec3(0.1);
     //vec3 unit_direction = normalize(ray.direction);
     //float a = 0.5*(unit_direction.y + 1.0);
     //return (1.0-a)*vec3(1.0, 1.0, 1.0) + a*vec3(0.5, 0.7, 1.0);
 
-    return GetTextureColor(EquirectangularProjectionUV(ray.direction), 1).rgb;
+    vec3 e = GetTextureColor(EquirectangularProjectionUV(ray.direction), 1).rgb;
+    return e*e; // tunemapping reversed?
 }
 
 vec3 SkyEmit(Ray ray) {
-    return GetTextureColor(EquirectangularProjectionUV(ray.direction), 1).rgb;
+    vec3 e = GetTextureColor(EquirectangularProjectionUV(ray.direction), 1).rgb;
+    return e*e; // tunemapping reversed?
     //return vec3(0.0);
-    vec3 unit_direction = normalize(ray.direction);
-    const vec3 sun_direction = normalize(vec3(1.0, 1.0, 0.0)); // directly overhead
+    // vec3 unit_direction = normalize(ray.direction);
+    // const vec3 sun_direction = normalize(vec3(1.0, 1.0, 0.0)); // directly overhead
 
-    float alignment = dot(unit_direction, sun_direction); // cosine of angle to sun
-    float intensity = smoothstep(0.98, 1.0, alignment);    // narrow bright spot
+    // float alignment = dot(unit_direction, sun_direction); // cosine of angle to sun
+    // float intensity = smoothstep(0.98, 1.0, alignment);    // narrow bright spot
 
-    return mix(vec3(0.5), vec3(1.0), intensity);
+    // return mix(vec3(0.5), vec3(1.0), intensity);
 }
 
 vec3 RayColor(Ray ray) {
@@ -565,9 +568,15 @@ vec3 RayColor(Ray ray) {
             }
         }
         else {
-            color += SkyEmit(ray);
-            T *= SkyColor(ray);
-            break;
+            vec3 sky = SkyColor(ray);
+            return T*color*sky + sky;  // Faster cuz sky col = sky emit rn
+            //return T*color*SkyColor(ray) + SkyEmit(ray);
+
+
+            //return SkyColor(ray);
+            // color += SkyEmit(ray);
+            // T *= SkyColor(ray);
+            // break;
         }
     }
     
@@ -622,12 +631,14 @@ void main() {
     Initialize();
 
     vec3 col = vec3(0.0);
+
     for (int i = 0; i < SAMPLES; ++i) {
         vec2 offset = vec2(float(i) / float(SAMPLES), fract(sin(float(i)*13.37*iTime)));
         Ray ray = getRay(fragTexCoord+offset*EPSILON);
         col += RayColor(ray);
     }
     col /= float(SAMPLES);
+
     
     // Gamma correction
     col = pow(col, vec3(1.0 / 2.0));
@@ -635,6 +646,7 @@ void main() {
 
     // test texture
 
+    //FragColor = vec4(texture2D(tex1, fragTexCoord).a);
     //FragColor = texture2D(tex0, fragTexCoord);
 
 

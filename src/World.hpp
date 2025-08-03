@@ -21,12 +21,12 @@ public:
     : camera(std::make_shared<CameraControl>(3840, 2160)) 
     {
         camera->vfov     = 90;
-        camera->Position = Vector3{26,3,6};
+        camera->Position = Vector3{3,3,3};
         camera->yaw   = M_PI*1.41;
 
         // GROUND
-        //mats[0] = Mat(DARKGRAY, LAMBERTIAN, -1, -1, 0.0, 0.0);
-        //objects[0] = Hittable::Sphere(Vector3{0, -1000, 0}, 1000, 0);
+        mats[0] = Mat(WHITE, LAMBERTIAN, -1, -1, 0.0, 0.0);
+        objects[0] = Hittable::Sphere(Vector3{0, -3, 0}, 3, 0);
 
         // SPHERE
         //mats[1] = Mat(GRAY, LAMBERTIAN, 0, -1, 0.0, 1/1.3);
@@ -35,10 +35,10 @@ public:
 
         // LIGHT QUAD
         mats[2] = Mat(Vector3{1.0, 1.0, 1.0}, DIFFUSE_LIGHT, -1, -1, 0.0, 0.0);
-        objects[2] = Hittable::Quad(Vector3{3, 1, -2}, Vector3{4, 0, 0}, Vector3{0, 4, 0}, 2);
+        //objects[2] = Hittable::Quad(Vector3{3, 1, -2}, Vector3{4, 0, 0}, Vector3{0, 4, 0}, 2);
 
         // LIGHT SPHERE
-        objects[3] = Hittable::Sphere(Vector3{0, 7, 0}, 2, 2);        
+        //objects[3] = Hittable::Sphere(Vector3{0, 7, 0}, 2, 2);        
     }
 
     void Update() {
