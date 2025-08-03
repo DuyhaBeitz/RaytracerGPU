@@ -29,7 +29,6 @@ void TakeTimestampedScreenshot() {
 bool Init();
 void LoadTextures();
 void HandleInput();
-void ApplyUniforms();
 void DrawScreen();
 
 int main() {
@@ -74,6 +73,7 @@ bool Init() {
 
 void LoadTextures() {
     textures.push_back(LoadTexture("assets/earthmap.png"));
+    textures.push_back(LoadTexture("assets/IndoorEnvironmentHDRI013_16K-TONEMAPPED.jpg"));
 }
 
 void HandleInput()

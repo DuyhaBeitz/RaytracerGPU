@@ -13,7 +13,7 @@ struct CameraControl {
     float defocus_angle = 0.0;
     float focus_dist = 0.5;
 
-    bool updating = false;
+    bool updating = true;
 
     Vector3 Position = Vector3{0.0, 1.0, -3.0};
     Vector3 vup = Vector3{0.0, 1.0, 0.0};
@@ -47,6 +47,7 @@ struct CameraControl {
 
     void ApplyTextureUniforms(Shader& shader, std::vector<Texture2D>& textures) {
         SetShaderValueTexture(shader, GetShaderLocation(shader, "tex0"), textures[0]);
+        SetShaderValueTexture(shader, GetShaderLocation(shader, "tex1"), textures[1]);
     }
 
     void DrawFromBuffer() {
@@ -61,7 +62,7 @@ struct CameraControl {
                 0.f,
                 //Fade(WHITE, accumAlpha)
                 //Fade(WHITE, 0.01)
-                Fade(WHITE, 0.08)
+                Fade(WHITE, 0.3)
             );
             EndBlendMode();
             accumFrameCount++;

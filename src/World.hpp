@@ -18,18 +18,19 @@ class World {
 public:
 
     World()
-    : camera(std::make_shared<CameraControl>(3840/4, 2160/4)) 
+    : camera(std::make_shared<CameraControl>(3840, 2160)) 
     {
-        camera->vfov     = 20;
+        camera->vfov     = 90;
         camera->Position = Vector3{26,3,6};
         camera->yaw   = M_PI*1.41;
 
         // GROUND
-        mats[0] = Mat(DARKGRAY, LAMBERTIAN, -1, -1, 0.0, 0.0);
-        objects[0] = Hittable::Sphere(Vector3{0, -1000, 0}, 1000, 0);
+        //mats[0] = Mat(DARKGRAY, LAMBERTIAN, -1, -1, 0.0, 0.0);
+        //objects[0] = Hittable::Sphere(Vector3{0, -1000, 0}, 1000, 0);
 
         // SPHERE
-        mats[1] = Mat(GRAY, LAMBERTIAN, 0, -1, 0.0, 1/1.3);
+        //mats[1] = Mat(GRAY, LAMBERTIAN, 0, -1, 0.0, 1/1.3);
+        mats[1] = Mat(WHITE, DIELECTRIC, -1, -1, 0.0, 1/1.3);
         objects[1] = Hittable::Sphere(Vector3{0, 2, 0}, 2, 1);        
 
         // LIGHT QUAD
@@ -45,8 +46,8 @@ public:
         camera->UpdateForward();
         HandleInput();
 
-        objects[1].a.x += GetFrameTime();
-        objects[3].a.y += sinf(runTime*30)/500;
+        //objects[1].a.x += GetFrameTime();
+        //objects[3].a.y += sinf(runTime*30)/500;
 
         runTime += GetFrameTime();
     }

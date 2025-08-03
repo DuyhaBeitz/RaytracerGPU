@@ -262,6 +262,17 @@ vec2 SphereUV(vec3 p) {
     return vec2(phi / (2*PI), theta / PI);
 }
 
+vec2 EquirectangularProjectionUV(vec3 dir) {
+    // Normalize the direction vector
+    vec3 normalizedDir = normalize(dir);
+    
+    // Calculate U and V
+    float u = 0.5 + atan(normalizedDir.z, normalizedDir.x) / (2.0 * PI);
+    float v = 0.5 - asin(normalizedDir.y) / PI;
+    
+    return vec2(u, v);
+}
+
 vec3 CheckerPattern(in vec3 point, vec3 color) {
     int xInteger = int(floor(point.x));
     int yInteger = int(floor(point.y));
@@ -508,15 +519,17 @@ bool Scatter(inout Ray r_in, inout HitResult rec, inout vec3 attenuation, inout 
     return false;
 }
 
-
 vec3 SkyColor(Ray ray) {
-    vec3 unit_direction = normalize(ray.direction);
-    float a = 0.5*(unit_direction.y + 1.0);
-    return (1.0-a)*vec3(1.0, 1.0, 1.0) + a*vec3(0.5, 0.7, 1.0);
+    //vec3 unit_direction = normalize(ray.direction);
+    //float a = 0.5*(unit_direction.y + 1.0);
+    //return (1.0-a)*vec3(1.0, 1.0, 1.0) + a*vec3(0.5, 0.7, 1.0);
+
+    return GetTextureColor(EquirectangularProjectionUV(ray.direction), 1).rgb;
 }
 
 vec3 SkyEmit(Ray ray) {
-    return vec3(0.0);
+    return GetTextureColor(EquirectangularProjectionUV(ray.direction), 1).rgb;
+    //return vec3(0.0);
     vec3 unit_direction = normalize(ray.direction);
     const vec3 sun_direction = normalize(vec3(1.0, 1.0, 0.0)); // directly overhead
 
