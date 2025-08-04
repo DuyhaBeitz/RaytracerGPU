@@ -60,8 +60,7 @@ struct CameraControl {
                 Rectangle{0, 0, float(GetScreenWidth()), float(GetScreenHeight())},
                 Vector2{0.0},
                 0.f,
-                Fade(WHITE, accumFrameCount)
-                //Fade(WHITE, 1)
+                Fade(WHITE, accumAlpha)
             );
             EndBlendMode();
             accumFrameCount++;

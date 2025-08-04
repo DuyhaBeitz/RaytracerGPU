@@ -142,19 +142,39 @@ private:
         Vector3 u_b[OBJECT_COUNT];
         Vector3 u_c[OBJECT_COUNT];
 
+        Vector3 u_n[OBJECT_COUNT];
+        float u_D[OBJECT_COUNT];
+        Vector3 u_w[OBJECT_COUNT];
+
         for (int i = 0; i < OBJECT_COUNT; i++) {
             u_geometry_type[i] = objects[i].geometry_type;
             u_mat_id[i] = objects[i].material_id;
             u_a[i] = objects[i].a;
             u_b[i] = objects[i].b;
             u_c[i] = objects[i].c;
+
+            if (u_geometry_type[i] == PLANE || u_geometry_type[i] == QUAD) {
+                
+                Vector3 n = Vector3CrossProduct(u_b[i], u_c[i]);
+                Vector3 normal = Vector3Normalize(n);
+                float D = Vector3DotProduct(normal, u_a[i]);
+                Vector3 w = Vector3Scale(n, 1.0/Vector3DotProduct(n,n));
+
+                u_n[i] = normal;
+                u_D[i] = D;
+                u_w[i] = w;
+            }           
         }
 
         SetShaderValueV(shader, GetShaderLocation(shader, "u_geometry_type"), u_geometry_type, SHADER_UNIFORM_INT, OBJECT_COUNT);
         SetShaderValueV(shader, GetShaderLocation(shader, "u_mat_id"), u_mat_id, SHADER_UNIFORM_INT, OBJECT_COUNT);
-        SetShaderValueV(shader, GetShaderLocation(shader, "u_a"), &u_a[0].x, SHADER_UNIFORM_VEC3, MATERIAL_COUNT);
-        SetShaderValueV(shader, GetShaderLocation(shader, "u_b"), &u_b[0].x, SHADER_UNIFORM_VEC3, MATERIAL_COUNT);
-        SetShaderValueV(shader, GetShaderLocation(shader, "u_c"), &u_c[0].x, SHADER_UNIFORM_VEC3, MATERIAL_COUNT);
+        SetShaderValueV(shader, GetShaderLocation(shader, "u_a"), &u_a[0].x, SHADER_UNIFORM_VEC3, OBJECT_COUNT);
+        SetShaderValueV(shader, GetShaderLocation(shader, "u_b"), &u_b[0].x, SHADER_UNIFORM_VEC3, OBJECT_COUNT);
+        SetShaderValueV(shader, GetShaderLocation(shader, "u_c"), &u_c[0].x, SHADER_UNIFORM_VEC3, OBJECT_COUNT);
+        
+        SetShaderValueV(shader, GetShaderLocation(shader, "u_n"), &u_n[0].x, SHADER_UNIFORM_VEC3, OBJECT_COUNT);
+        SetShaderValueV(shader, GetShaderLocation(shader, "u_D"), u_D, SHADER_UNIFORM_FLOAT, OBJECT_COUNT);
+        SetShaderValueV(shader, GetShaderLocation(shader, "u_w"), &u_w[0].x, SHADER_UNIFORM_VEC3, OBJECT_COUNT);
     }
 
     void HandleInput() {
@@ -220,7 +240,7 @@ private:
     }
 
     void CornellBox() {
-        camera->updating = false;
+        camera->updating = true;
         camera->vfov     = 40;
         camera->Position = Vector3{0.5, 0.5, -1.2};
     
@@ -238,7 +258,10 @@ private:
         
         objects[0] = Hittable::Quad(Vector3{1,0,0}, Vector3{0,1,0}, Vector3{0,0,1}, 2);
         objects[1] = Hittable::Quad(Vector3{0,0,0}, Vector3{0,1,0}, Vector3{0,0,1}, 0);
+
+        // light quad
         objects[2] = Hittable::Quad(Vector3{0.6, 1, 0.5}, Vector3{-0.2,0,0}, Vector3{0,0,-0.2}, 3);
+
         objects[3] = Hittable::Quad(Vector3{0,0,0}, Vector3{1,0,0}, Vector3{0,0,1}, 1);
         objects[4] = Hittable::Quad(Vector3{1,1,1}, Vector3{-1,0,0}, Vector3{0,0,-1}, 1);
         objects[5] = Hittable::Quad(Vector3{0,0,1}, Vector3{1,0,0}, Vector3{0,1,0}, 1);

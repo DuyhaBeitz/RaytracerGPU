@@ -24,8 +24,8 @@ vec3 pixel00_loc;
 vec3 pixel_delta_u;
 vec3 pixel_delta_v;
 
-#define MAX_BOUNCES 3
-#define SAMPLES     10
+#define MAX_BOUNCES 32
+#define SAMPLES     8
 #define PI 3.14159265359
 #define EPSILON 0.00001
 
@@ -216,6 +216,11 @@ uniform vec3 u_a[OBJECT_COUNT]; // center for spheres
 uniform vec3 u_b[OBJECT_COUNT]; // .x is radius for sheres
 uniform vec3 u_c[OBJECT_COUNT];
 
+// Quad/plane variables (caching to speed up)
+uniform vec3 u_n[OBJECT_COUNT];
+uniform float u_D[OBJECT_COUNT];
+uniform vec3 u_w[OBJECT_COUNT];
+
 uniform sampler2D tex0;
 uniform sampler2D tex1;
 uniform sampler2D tex2;
@@ -347,10 +352,9 @@ HitResult PlaneHit(int obj_id, Ray r) {
     vec3 u = u_b[obj_id];
     vec3 v = u_c[obj_id];
 
-    vec3 n = cross(u, v);
-    vec3 normal = normalize(n);
-    float D = dot(normal, Q);
-    vec3 w = n / dot(n,n);
+    vec3 normal = u_n[obj_id];
+    float D = u_D[obj_id];
+    vec3 w = u_w[obj_id];
 
     HitResult res;
     res.t = -1.0;
@@ -389,10 +393,9 @@ HitResult QuadHit(int obj_id, Ray r) {
     vec3 u = u_b[obj_id];
     vec3 v = u_c[obj_id];
 
-    vec3 n = cross(u, v);
-    vec3 normal = normalize(n);
-    float D = dot(normal, Q);
-    vec3 w = n / dot(n,n);
+    vec3 normal = u_n[obj_id];
+    float D = u_D[obj_id];
+    vec3 w = u_w[obj_id];
 
     HitResult res;
     res.t = -1.0;
