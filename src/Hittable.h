@@ -3,12 +3,13 @@
 #include <raylib.h>
 #include <raymath.h>
 
-#define SPHERE 0
-#define PLANE 1
-#define QUAD 2
+#define EMPTY_GEOM -1
+#define SPHERE      0
+#define PLANE       1
+#define QUAD        2
 
 struct Hittable {
-    int geometry_type;
+    int geometry_type = EMPTY_GEOM;
     int material_id;
     Vector3 a;
     Vector3 b;

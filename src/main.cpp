@@ -27,9 +27,9 @@ void TakeTimestampedScreenshot() {
 }
 
 bool Init();
-void LoadTextures();
 void HandleInput();
 void DrawScreen();
+void UnloadTextures();
 
 int main() {
     if (!Init()) {
@@ -47,6 +47,7 @@ int main() {
 
         DrawScreen();
     }
+    UnloadTextures();
     CloseWindow();
     return 0;
 }
@@ -59,11 +60,12 @@ bool Init() {
     ToggleBorderlessWindowed();
     DisableCursor();
 
-    LoadTextures();
 
     shader = LoadShader(0, "assets/RTX_GPU.frag");
 
-    world = std::make_shared<World>();
+    //world = std::make_shared<World>(SC_ROOM);
+    world = std::make_shared<World>(SC_DARK);
+    textures = world->LoadTexturesForScene();
 
     Texture2D shapes_texture = { rlGetTextureIdDefault(), 1, 1, 1, PIXELFORMAT_UNCOMPRESSED_R8G8B8A8 };
     SetShapesTexture(shapes_texture, (Rectangle){ 0.0f, 0.0f, 1.0f, 1.0f });
@@ -71,9 +73,10 @@ bool Init() {
     return true;
 }
 
-void LoadTextures() {
-    textures.push_back(LoadTexture("assets/earthmap.png"));
-    textures.push_back(LoadTexture("assets/IndoorEnvironmentHDRI013_16K-TONEMAPPED.jpg"));
+void UnloadTextures() {
+    for (auto texture : textures) {
+        UnloadTexture(texture);
+    }
 }
 
 void HandleInput()
@@ -98,9 +101,15 @@ void DrawScreen() {
     BeginDrawing();
     world->GetCamera()->DrawFromBuffer();
     if (show_info) {
-        DrawRectangle(0, 0, 800, 200, GRAY);
-        DrawText(TextFormat("FPS: %i", GetFPS()), 10, 10, 64, WHITE);
-        DrawText(TextFormat("Resolution: %i, %i", world->GetCamera()->GetRenderWith(), world->GetCamera()->GetRenderHeight()), 10, 84, 64, WHITE);
+        
+        int dv = 64;
+        DrawRectangle(0, 0, 800, dv*5, GRAY);
+        
+        DrawText(TextFormat("FPS: %i", GetFPS()), 10, 0, 64, WHITE);
+        DrawText(TextFormat("Resolution: %i, %i", world->GetCamera()->GetRenderWith(), world->GetCamera()->GetRenderHeight()), 10, dv, 64, WHITE);
+        DrawText(TextFormat("vfov: %f", world->GetCamera()->vfov), 10, 2*dv, 64, WHITE);
+        DrawText(TextFormat("focus_dist: %f", world->GetCamera()->focus_dist), 10, 3*dv, 64, WHITE);
+        DrawText(TextFormat("defocus_angle: %f", world->GetCamera()->defocus_angle), 10, 4*dv, 64, WHITE);
     }
     EndDrawing();
 }

@@ -11,34 +11,32 @@
 
 #include "CameraControl.hpp"
 
-#define MATERIAL_COUNT 5
-#define OBJECT_COUNT 4
+#define MATERIAL_COUNT 100
+#define OBJECT_COUNT 5
+
+#define SC_ROOM 0
+#define SC_DARK 1
+
+#define SKY_DARK -2
+#define SKY_BLUE -1
 
 class World {
 public:
 
-    World()
-    : camera(std::make_shared<CameraControl>(3840, 2160)) 
+    World(int _scene = SC_ROOM)
+    : camera(std::make_shared<CameraControl>(3840, 2160)), scene(_scene)
     {
-        camera->vfov     = 90;
-        camera->Position = Vector3{3,3,3};
-        camera->yaw   = M_PI*1.41;
-
-        // GROUND
-        mats[0] = Mat(WHITE, LAMBERTIAN, -1, -1, 0.0, 0.0);
-        objects[0] = Hittable::Sphere(Vector3{0, -3, 0}, 3, 0);
-
-        // SPHERE
-        //mats[1] = Mat(GRAY, LAMBERTIAN, 0, -1, 0.0, 1/1.3);
-        mats[1] = Mat(WHITE, DIELECTRIC, -1, -1, 0.0, 1/1.3);
-        objects[1] = Hittable::Sphere(Vector3{0, 2, 0}, 2, 1);        
-
-        // LIGHT QUAD
-        mats[2] = Mat(Vector3{1.0, 1.0, 1.0}, DIFFUSE_LIGHT, -1, -1, 0.0, 0.0);
-        //objects[2] = Hittable::Quad(Vector3{3, 1, -2}, Vector3{4, 0, 0}, Vector3{0, 4, 0}, 2);
-
-        // LIGHT SPHERE
-        //objects[3] = Hittable::Sphere(Vector3{0, 7, 0}, 2, 2);        
+        switch (scene)
+        {
+        case SC_ROOM:
+            Room();
+            break;
+        case SC_DARK:
+            Dark();
+            break;
+        default:
+            break;
+        }
     }
 
     void Update() {
@@ -68,9 +66,29 @@ public:
         ApplyObjectUniforms(shader);
     }
 
+    std::vector<Texture2D> LoadTexturesForScene() {
+        std::vector<Texture2D> textures;
+        switch (scene)
+        {
+
+        case SC_ROOM:
+        case SC_DARK:
+            textures.push_back(LoadTexture("assets/earthmap.png"));
+            textures.push_back(LoadTexture("assets/IndoorEnvironmentHDRI013_16K-TONEMAPPED.jpg"));
+            break;
+
+        default:
+            break;
+        }
+        return textures;
+    }
+
     std::shared_ptr<CameraControl> GetCamera() { return camera; }
 
 private:
+
+    int scene;
+    int sky_tex_id;
 
     Mat mats[MATERIAL_COUNT];
     Hittable objects[OBJECT_COUNT];
@@ -104,6 +122,8 @@ private:
         SetShaderValueV(shader, GetShaderLocation(shader, "u_emit_tex_id"), u_emit_tex_id, SHADER_UNIFORM_INT, MATERIAL_COUNT);
         SetShaderValueV(shader, GetShaderLocation(shader, "u_fuzz"), u_fuzz, SHADER_UNIFORM_FLOAT, MATERIAL_COUNT);
         SetShaderValueV(shader, GetShaderLocation(shader, "u_refraction_index"), u_refraction_index, SHADER_UNIFORM_FLOAT, MATERIAL_COUNT);
+
+        SetShaderValue(shader, GetShaderLocation(shader, "u_sky_tex_id"), &sky_tex_id, SHADER_UNIFORM_INT);
     }
 
     void ApplyObjectUniforms(Shader& shader) {
@@ -139,6 +159,54 @@ private:
         if (IsKeyPressed(KEY_DOWN)) {
             camera->NewResolution(camera->GetRenderWith()/2, camera->GetRenderHeight()/2);
         }
+
+        float v = GetMouseWheelMove();
+        if (v != 0) {
+            if (IsKeyDown(KEY_Z)) camera->defocus_angle += v*0.05;
+            else camera->focus_dist += v*0.05;
+            camera->RestartAccum();
+        }        
     }
 
+    // Scenes
+
+    void Room() {
+        camera->vfov     = 90;
+        camera->Position = Vector3{3,3,3};
+        camera->yaw   = M_PI*1.41;
+
+        mats[0] = Mat(YELLOW, LAMBERTIAN, -1, -1, 0.0, 0.0);
+        objects[0] = Hittable::Sphere(Vector3{0, 0, -3}, 1, 0);
+
+        mats[1] = Mat(WHITE, DIELECTRIC, -1, -1, 0.0, 1/1.3);
+        objects[1] = Hittable::Sphere(Vector3{0, 0, 0}, 1, 1);        
+
+        mats[2] = Mat(RED, METAL, -1, -1, 0.0, 0.0);
+        objects[2] = Hittable::Sphere(Vector3{0, 0, 3}, 1, 2);        
+
+        sky_tex_id = 1;
+    }
+
+    void Dark() {
+        camera->vfov     = 90;
+        camera->Position = Vector3{3,3,3};
+        camera->yaw   = M_PI*1.41;
+
+        mats[0] = Mat(YELLOW, LAMBERTIAN, -1, -1, 0.0, 0.0);
+        objects[0] = Hittable::Sphere(Vector3{0, 0, -3}, 1, 0);
+
+        mats[1] = Mat(WHITE, DIELECTRIC, -1, -1, 0.0, 1/1.3);
+        objects[1] = Hittable::Sphere(Vector3{0, 0, 0}, 1, 1);        
+
+        mats[2] = Mat(RED, METAL, -1, -1, 0.0, 0.0);
+        objects[2] = Hittable::Sphere(Vector3{0, 0, 3}, 1, 2);        
+
+        mats[3] = Mat(WHITE, DIFFUSE_LIGHT, -1, -1, 0.0, 0.0);
+        
+        float Y = 3;
+        float Z = 6;
+        objects[3] = Hittable::Quad(Vector3{-4, -Y/2, -Z/2}, Vector3{0, Y, 0}, Vector3{0, 0, Z}, 3);
+
+        sky_tex_id = SKY_DARK;
+    }
 };

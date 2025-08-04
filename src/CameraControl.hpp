@@ -8,7 +8,7 @@ struct CameraControl {
     float yaw = 0.0f;
     float pitch = 0.0f;
     float mouseSensitivity = 0.005;
-    float speed = 13.0;
+    float speed = 5.0;
     float vfov = 90.0;
     float defocus_angle = 0.0;
     float focus_dist = 0.5;
@@ -24,7 +24,6 @@ struct CameraControl {
     float accumAlpha = 1.0;
 
     RenderTexture2D buffer;
-    RenderTexture2D tempbuffer;
 
     CameraControl(int render_width, int render_height) {
         buffer = LoadRenderTexture(render_width, render_height);
@@ -105,9 +104,9 @@ struct CameraControl {
             if (Velocity != Vector3{0.0}) RestartAccum();
     
             // otherwise shader crashes
-            Position.x = Clamp(Position.x, -100, 100);
-            Position.y = Clamp(Position.y, -100, 100);
-            Position.z = Clamp(Position.z, -100, 100);
+            // Position.x = Clamp(Position.x, -100, 100);
+            // Position.y = Clamp(Position.y, -100, 100);
+            // Position.z = Clamp(Position.z, -100, 100);
         }
     }
 

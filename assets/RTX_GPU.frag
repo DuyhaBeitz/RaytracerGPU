@@ -24,19 +24,23 @@ vec3 pixel00_loc;
 vec3 pixel_delta_u;
 vec3 pixel_delta_v;
 
-#define MAX_BOUNCES 32
-#define SAMPLES     4
+#define MAX_BOUNCES 10000000
+#define SAMPLES     3
 #define PI 3.14159265359
 #define EPSILON 0.00001
 
-#define MATERIAL_COUNT 5
-#define OBJECT_COUNT 4
+#define MATERIAL_COUNT 100
+#define OBJECT_COUNT   5
 
 // Material types
 #define LAMBERTIAN    0
 #define METAL         1
 #define DIELECTRIC    2
 #define DIFFUSE_LIGHT 3
+
+// Procedural sky
+#define SKY_DARK -2
+#define SKY_BLUE -1
 
 // A single iteration of Bob Jenkins' One-At-A-Time hashing algorithm.
 uint hash( uint x ) {
@@ -193,6 +197,7 @@ bool Vec3NearZero(in vec3 v) {
     return abs(v.x) < 0.0000001 && abs(v.y) < 0.0000001 && abs(v.z) < 0.0000001;
 }
 
+uniform int u_sky_tex_id;
 uniform vec3 u_albedo[MATERIAL_COUNT];
 uniform int u_mat_type[MATERIAL_COUNT];
 uniform int u_tex_id[MATERIAL_COUNT];
@@ -200,9 +205,10 @@ uniform int u_emit_tex_id[MATERIAL_COUNT];
 uniform float u_fuzz[MATERIAL_COUNT];
 uniform float u_refraction_index[MATERIAL_COUNT];
 
-#define SPHERE 0
-#define PLANE 1
-#define QUAD 2
+#define EMPTY_GEOM -1
+#define SPHERE      0
+#define PLANE       1
+#define QUAD        2
 
 uniform int u_geometry_type[OBJECT_COUNT];
 uniform int u_mat_id[OBJECT_COUNT];
@@ -421,13 +427,14 @@ HitResult QuadHit(int obj_id, Ray r) {
 }
 
 HitResult AbstractHit(int obj_id, Ray r) {
-    if (u_geometry_type[obj_id] == SPHERE) {
+    if (u_geometry_type[obj_id] == EMPTY_GEOM) {}
+    else if (u_geometry_type[obj_id] == SPHERE) {
         return HitSphere(obj_id, r);
     }
-    if (u_geometry_type[obj_id] == QUAD) {
+    else if (u_geometry_type[obj_id] == QUAD) {
         return QuadHit(obj_id, r);
     }
-    if (u_geometry_type[obj_id] == PLANE) {
+    else if (u_geometry_type[obj_id] == PLANE) {
         return PlaneHit(obj_id, r);
     }
     HitResult res;
@@ -469,7 +476,7 @@ bool LambertianScatter(inout Ray r_in, inout HitResult rec, inout vec3 attenuati
 
 bool MetalScatter(inout Ray r_in, inout HitResult rec, inout vec3 attenuation, inout Ray scattered) {
     vec3 reflected = reflect(r_in.direction, rec.normal);
-    reflected += u_fuzz[rec.mat_id] + randomUnitVector(rec.hit_pos.xy*iTime);
+    reflected += u_fuzz[rec.mat_id] * randomUnitVector(rec.hit_pos.xy*iTime);
     scattered = Ray(rec.hit_pos, reflected);
     attenuation = MatColor(rec.mat_id, rec.uv, rec.hit_pos);
     return dot(scattered.direction, rec.normal) > 0;
@@ -520,15 +527,20 @@ bool Scatter(inout Ray r_in, inout HitResult rec, inout vec3 attenuation, inout 
 }
 
 vec3 SkyColor(Ray ray) {
-    //return vec3(0.1);
-    //vec3 unit_direction = normalize(ray.direction);
-    //float a = 0.5*(unit_direction.y + 1.0);
-    //return (1.0-a)*vec3(1.0, 1.0, 1.0) + a*vec3(0.5, 0.7, 1.0);
+    if (u_sky_tex_id == SKY_DARK) {
+        return vec3(0.0);
+    }
+    if (u_sky_tex_id == SKY_BLUE) {
+        vec3 unit_direction = normalize(ray.direction);
+        float a = 0.5*(unit_direction.y + 1.0);
+        return (1.0-a)*vec3(1.0, 1.0, 1.0) + a*vec3(0.5, 0.7, 1.0);
+    }
 
-    vec3 e = GetTextureColor(EquirectangularProjectionUV(ray.direction), 1).rgb;
+    vec3 e = GetTextureColor(EquirectangularProjectionUV(ray.direction), u_sky_tex_id).rgb;
     return e*e; // tunemapping reversed?
 }
 
+/*
 vec3 SkyEmit(Ray ray) {
     vec3 e = GetTextureColor(EquirectangularProjectionUV(ray.direction), 1).rgb;
     return e*e; // tunemapping reversed?
@@ -541,6 +553,7 @@ vec3 SkyEmit(Ray ray) {
 
     // return mix(vec3(0.5), vec3(1.0), intensity);
 }
+*/
 
 vec3 RayColor(Ray ray) {
     vec3 color = vec3(0.0);
@@ -569,7 +582,7 @@ vec3 RayColor(Ray ray) {
         }
         else {
             vec3 sky = SkyColor(ray);
-            return T*color*sky + sky;  // Faster cuz sky col = sky emit rn
+            return T*sky + sky;  // Faster cuz sky col = sky emit rn
             //return T*color*SkyColor(ray) + SkyEmit(ray);
 
 
