@@ -24,13 +24,13 @@ vec3 pixel00_loc;
 vec3 pixel_delta_u;
 vec3 pixel_delta_v;
 
-#define MAX_BOUNCES 32
+#define MAX_BOUNCES 8
 #define SAMPLES     8
 #define PI 3.14159265359
-#define EPSILON 0.00001
+#define EPSILON 0.0001
 
 #define MATERIAL_COUNT 100
-#define OBJECT_COUNT   6
+#define OBJECT_COUNT   18
 
 // Material types
 #define LAMBERTIAN    0

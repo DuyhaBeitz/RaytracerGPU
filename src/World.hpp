@@ -12,7 +12,7 @@
 #include "CameraControl.hpp"
 
 #define MATERIAL_COUNT 100
-#define OBJECT_COUNT 6
+#define OBJECT_COUNT 18
 
 // Scenes
 #define SC_ROOM        0
@@ -23,11 +23,13 @@
 #define SKY_DARK -2
 #define SKY_BLUE -1
 
+#define downscale 1.0
+
 class World {
 public:
 
     World(int _scene = SC_ROOM)
-    : camera(std::make_shared<CameraControl>(3840/8, 2160/8)), scene(_scene)
+    : camera(std::make_shared<CameraControl>(3840/downscale, 2160/downscale)), scene(_scene)
     {
         switch (scene)
         {
@@ -240,11 +242,11 @@ private:
     }
 
     void CornellBox() {
-        camera->updating = true;
+        camera->updating = false;
         camera->vfov     = 40;
         camera->Position = Vector3{0.5, 0.5, -1.2};
     
-        camera->defocus_angle = 1;
+        camera->defocus_angle = 0;
 
         Mat red   = Mat(Vector3{0.65, 0.05, 0.05}, LAMBERTIAN);
         Mat white = Mat(Vector3{0.73, 0.73, 0.73}, LAMBERTIAN);
@@ -266,6 +268,13 @@ private:
         objects[4] = Hittable::Quad(Vector3{1,1,1}, Vector3{-1,0,0}, Vector3{0,0,-1}, 1);
         objects[5] = Hittable::Quad(Vector3{0,0,1}, Vector3{1,0,0}, Vector3{0,1,0}, 1);
 
+        // tall box (left)
+        Hittable::Box(objects, 6, Vector3{0.5, 0, 0.6}, Vector3{0.3, 0, 0}, Vector3{0, 0.6, 0}, Vector3{0, 0, 0.3}, 1);
+        Hittable::RotateBox(objects, 6, Vector3{0, 1, 0}, 20);
+
+        // short box (right)
+        Hittable::Box(objects, 12, Vector3{0.25, 0, 0.2}, Vector3{0.3, 0, 0}, Vector3{0, 0.3, 0}, Vector3{0, 0, 0.3}, 1);
+        Hittable::RotateBox(objects, 12, Vector3{0, 1, 0}, -20);
         sky_tex_id = SKY_DARK;
     }
 };

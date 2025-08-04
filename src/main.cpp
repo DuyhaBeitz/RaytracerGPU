@@ -63,7 +63,6 @@ bool Init() {
 
     shader = LoadShader(0, "assets/RTX_GPU.frag");
 
-    //world = std::make_shared<World>(SC_ROOM);
     world = std::make_shared<World>(SC_CORNELL_BOX);
     textures = world->LoadTexturesForScene();
 
