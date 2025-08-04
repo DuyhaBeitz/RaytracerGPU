@@ -45,8 +45,9 @@ struct CameraControl {
     }
 
     void ApplyTextureUniforms(Shader& shader, std::vector<Texture2D>& textures) {
-        SetShaderValueTexture(shader, GetShaderLocation(shader, "tex0"), textures[0]);
-        SetShaderValueTexture(shader, GetShaderLocation(shader, "tex1"), textures[1]);
+        for (int i = 0; i < textures.size(); i++) {
+            SetShaderValueTexture(shader, GetShaderLocation(shader, TextFormat("tex%i", i)), textures[i]);
+        }
     }
 
     void DrawFromBuffer() {
@@ -59,8 +60,8 @@ struct CameraControl {
                 Rectangle{0, 0, float(GetScreenWidth()), float(GetScreenHeight())},
                 Vector2{0.0},
                 0.f,
-                Fade(WHITE, accumAlpha)
-                //Fade(WHITE, 0.01)
+                Fade(WHITE, accumFrameCount)
+                //Fade(WHITE, 1)
             );
             EndBlendMode();
             accumFrameCount++;

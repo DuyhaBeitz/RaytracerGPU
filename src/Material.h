@@ -22,9 +22,9 @@ struct Mat {
 
     Mat() {}
 
-    Mat(Color _albedo, int _mat_type, int _tex_id, int _emit_tex_id, float _fuzz, float _refraction_index) :
+    Mat(Color _albedo, int _mat_type = LAMBERTIAN, int _tex_id = -1, int _emit_tex_id = -1, float _fuzz = 0.0, float _refraction_index = 0.0) :
     albedo(FromColor(_albedo)), mat_type(_mat_type), tex_id(_tex_id), emit_tex_id(_emit_tex_id), fuzz(_fuzz), refraction_index(_refraction_index) {}
 
-    Mat(Vector3 _albedo, int _mat_type, int _tex_id, int _emit_tex_id, float _fuzz, float _refraction_index) :
+    Mat(Vector3 _albedo, int _mat_type = LAMBERTIAN, int _tex_id = -1, int _emit_tex_id = -1, float _fuzz = 0.0, float _refraction_index = 0.0) :
     albedo(_albedo), mat_type(_mat_type), tex_id(_tex_id), emit_tex_id(_emit_tex_id), fuzz(_fuzz), refraction_index(_refraction_index) {}
 };

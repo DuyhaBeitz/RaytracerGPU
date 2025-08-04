@@ -12,11 +12,14 @@
 #include "CameraControl.hpp"
 
 #define MATERIAL_COUNT 100
-#define OBJECT_COUNT 5
+#define OBJECT_COUNT 6
 
-#define SC_ROOM 0
-#define SC_DARK 1
+// Scenes
+#define SC_ROOM        0
+#define SC_DARK        1
+#define SC_CORNELL_BOX 2
 
+// Procedural sky
 #define SKY_DARK -2
 #define SKY_BLUE -1
 
@@ -24,7 +27,7 @@ class World {
 public:
 
     World(int _scene = SC_ROOM)
-    : camera(std::make_shared<CameraControl>(3840, 2160)), scene(_scene)
+    : camera(std::make_shared<CameraControl>(3840/8, 2160/8)), scene(_scene)
     {
         switch (scene)
         {
@@ -33,6 +36,9 @@ public:
             break;
         case SC_DARK:
             Dark();
+            break;
+        case SC_CORNELL_BOX:
+            CornellBox();
             break;
         default:
             break;
@@ -75,6 +81,9 @@ public:
         case SC_DARK:
             textures.push_back(LoadTexture("assets/earthmap.png"));
             textures.push_back(LoadTexture("assets/IndoorEnvironmentHDRI013_16K-TONEMAPPED.jpg"));
+            break;
+
+        case SC_CORNELL_BOX:
             break;
 
         default:
@@ -175,7 +184,7 @@ private:
         camera->Position = Vector3{3,3,3};
         camera->yaw   = M_PI*1.41;
 
-        mats[0] = Mat(YELLOW, LAMBERTIAN, -1, -1, 0.0, 0.0);
+        mats[0] = Mat(YELLOW, LAMBERTIAN);
         objects[0] = Hittable::Sphere(Vector3{0, 0, -3}, 1, 0);
 
         mats[1] = Mat(WHITE, DIELECTRIC, -1, -1, 0.0, 1/1.3);
@@ -192,20 +201,47 @@ private:
         camera->Position = Vector3{3,3,3};
         camera->yaw   = M_PI*1.41;
 
-        mats[0] = Mat(YELLOW, LAMBERTIAN, -1, -1, 0.0, 0.0);
+        mats[0] = Mat(YELLOW, LAMBERTIAN);
         objects[0] = Hittable::Sphere(Vector3{0, 0, -3}, 1, 0);
 
         mats[1] = Mat(WHITE, DIELECTRIC, -1, -1, 0.0, 1/1.3);
         objects[1] = Hittable::Sphere(Vector3{0, 0, 0}, 1, 1);        
 
-        mats[2] = Mat(RED, METAL, -1, -1, 0.0, 0.0);
+        mats[2] = Mat(RED, METAL);
         objects[2] = Hittable::Sphere(Vector3{0, 0, 3}, 1, 2);        
 
-        mats[3] = Mat(WHITE, DIFFUSE_LIGHT, -1, -1, 0.0, 0.0);
+        mats[3] = Mat(WHITE, DIFFUSE_LIGHT);
         
         float Y = 3;
         float Z = 6;
         objects[3] = Hittable::Quad(Vector3{-4, -Y/2, -Z/2}, Vector3{0, Y, 0}, Vector3{0, 0, Z}, 3);
+
+        sky_tex_id = SKY_DARK;
+    }
+
+    void CornellBox() {
+        camera->updating = false;
+        camera->vfov     = 40;
+        camera->Position = Vector3{0.5, 0.5, -1.2};
+    
+        camera->defocus_angle = 1;
+
+        Mat red   = Mat(Vector3{0.65, 0.05, 0.05}, LAMBERTIAN);
+        Mat white = Mat(Vector3{0.73, 0.73, 0.73}, LAMBERTIAN);
+        Mat green = Mat(Vector3{0.12, 0.45, 0.15}, LAMBERTIAN);
+        Mat light = Mat(Vector3{15, 15, 15}, DIFFUSE_LIGHT);
+
+        mats[0] = red;
+        mats[1] = white;
+        mats[2] = green;
+        mats[3] = light;
+        
+        objects[0] = Hittable::Quad(Vector3{1,0,0}, Vector3{0,1,0}, Vector3{0,0,1}, 2);
+        objects[1] = Hittable::Quad(Vector3{0,0,0}, Vector3{0,1,0}, Vector3{0,0,1}, 0);
+        objects[2] = Hittable::Quad(Vector3{0.6, 1, 0.5}, Vector3{-0.2,0,0}, Vector3{0,0,-0.2}, 3);
+        objects[3] = Hittable::Quad(Vector3{0,0,0}, Vector3{1,0,0}, Vector3{0,0,1}, 1);
+        objects[4] = Hittable::Quad(Vector3{1,1,1}, Vector3{-1,0,0}, Vector3{0,0,-1}, 1);
+        objects[5] = Hittable::Quad(Vector3{0,0,1}, Vector3{1,0,0}, Vector3{0,1,0}, 1);
 
         sky_tex_id = SKY_DARK;
     }

@@ -64,7 +64,7 @@ bool Init() {
     shader = LoadShader(0, "assets/RTX_GPU.frag");
 
     //world = std::make_shared<World>(SC_ROOM);
-    world = std::make_shared<World>(SC_DARK);
+    world = std::make_shared<World>(SC_CORNELL_BOX);
     textures = world->LoadTexturesForScene();
 
     Texture2D shapes_texture = { rlGetTextureIdDefault(), 1, 1, 1, PIXELFORMAT_UNCOMPRESSED_R8G8B8A8 };
