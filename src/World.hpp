@@ -242,7 +242,7 @@ private:
     }
 
     void CornellBox() {
-        camera->updating = false;
+        camera->updating = true;
         camera->vfov     = 40;
         camera->Position = Vector3{0.5, 0.5, -1.2};
     

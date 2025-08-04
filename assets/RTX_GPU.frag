@@ -24,10 +24,12 @@ vec3 pixel00_loc;
 vec3 pixel_delta_u;
 vec3 pixel_delta_v;
 
-#define MAX_BOUNCES 8
-#define SAMPLES     8
-#define PI 3.14159265359
-#define EPSILON 0.0001
+const int MAX_BOUNCES = 8;
+const int SAMPLES     = 8;
+const float PI        = 3.14159265359;
+
+const float INFINITY = 100000000.0;
+const float EPSILON = 0.0001;
 
 #define MATERIAL_COUNT 100
 #define OBJECT_COUNT   18
@@ -318,34 +320,40 @@ vec3 EmitColor(int mat_id, vec2 uv, inout vec3 point) {
 }
 
 
-HitResult HitSphere(int obj_id, Ray r) {
+bool HitSphere(int obj_id, Ray ray, float t_min, float t_max, inout HitResult res) {
 
     vec3 center = u_a[obj_id];
     float radius = u_b[obj_id].x;
 
-    vec3 oc = center - r.origin;
-    float lr = length(r.direction);
+    vec3 oc = center - ray.origin;
+    float lr = length(ray.direction);
     float loc = length(oc);
     float a = lr*lr;
-    float h = dot(r.direction, oc);
+    float h = dot(ray.direction, oc);
     float c = loc*loc - radius*radius;
     float discriminant = h*h - a*c;
 
-    HitResult res;
-    res.t = -1.0;
     if (discriminant >= 0) {
-        res.t = (h - sqrt(discriminant)) / a;
-    }
-    res.mat_id = u_mat_id[obj_id];
-    res.hit_pos = RayAt(r, res.t);
-    vec3 normal = normalize(RayAt(r, res.t) - center);
-    SetFaceNormal(r, normal, res);
+        res.t = (h - sqrt(discriminant)) / a; // root with smaller t (-)
+        if (res.t > t_max) return false;
+        else if (res.t < t_min) {
+            res.t = (h + sqrt(discriminant)) / a; // root with bigger t (+)
+            if (res.t > t_max || res.t < t_min) return false;
+        }
+        res.mat_id = u_mat_id[obj_id];
+        res.hit_pos = RayAt(ray, res.t);
+        vec3 normal = normalize(RayAt(ray, res.t) - center);
+        SetFaceNormal(ray, normal, res);
 
-    res.uv = SphereUV(normal);
-    return res;
+        res.uv = SphereUV(normal);
+        return true;
+    }
+    else {
+        return false;
+    }
 }
 
-HitResult PlaneHit(int obj_id, Ray r) {
+bool PlaneHit(int obj_id, Ray ray, float t_min, float t_max, inout HitResult res) {
     
     // finding plane
     vec3 Q = u_a[obj_id];
@@ -356,22 +364,19 @@ HitResult PlaneHit(int obj_id, Ray r) {
     float D = u_D[obj_id];
     vec3 w = u_w[obj_id];
 
-    HitResult res;
-    res.t = -1.0;
-
-    float denom = dot(normal, r.direction);
+    float denom = dot(normal, ray.direction);
 
     // No hit if the ray is parallel to the plane.
     if (abs(denom) < 1e-8) {
-        return res;
+        return false;
     }
 
     // Return false if the hit point parameter t is outside the ray interval.
-    float t = (D - dot(normal, r.origin)) / denom;
-    if (t < EPSILON) return res;
+    float t = (D - dot(normal, ray.origin)) / denom;
+    if (t < t_min || t > t_max) return false;
 
     // Determine if the hit point lies within the planar shape using its plane coordinates.
-    vec3 intersection = RayAt(r, t);
+    vec3 intersection = RayAt(ray, t);
     vec3 planar_hitpt_vector = intersection - Q;
     float alpha = dot(w, cross(planar_hitpt_vector, v));
     float beta = dot(w, cross(u, planar_hitpt_vector));
@@ -381,12 +386,12 @@ HitResult PlaneHit(int obj_id, Ray r) {
     res.hit_pos = intersection;
     res.mat_id = u_mat_id[obj_id];;
     res.uv = vec2(alpha, beta);
-    SetFaceNormal(r, normal, res);
+    SetFaceNormal(ray, normal, res);
 
-    return res;
+    return true;
 }
 
-HitResult QuadHit(int obj_id, Ray r) {
+bool QuadHit(int obj_id, Ray ray, float t_min, float t_max, inout HitResult res) {
     
     // finding plane
     vec3 Q = u_a[obj_id];
@@ -397,70 +402,62 @@ HitResult QuadHit(int obj_id, Ray r) {
     float D = u_D[obj_id];
     vec3 w = u_w[obj_id];
 
-    HitResult res;
-    res.t = -1.0;
 
-    float denom = dot(normal, r.direction);
+    float denom = dot(normal, ray.direction);
 
     // No hit if the ray is parallel to the plane.
     if (abs(denom) < 1e-8) {
-        return res;
+        return false;
     }
 
     // Return false if the hit point parameter t is outside the ray interval.
-    float t = (D - dot(normal, r.origin)) / denom;
-    if (t < EPSILON) return res;
+    float t = (D - dot(normal, ray.origin)) / denom;
+    if (t < t_min || t > t_max) return false;
 
     // Determine if the hit point lies within the planar shape using its plane coordinates.
-    vec3 intersection = RayAt(r, t);
+    vec3 intersection = RayAt(ray, t);
     vec3 planar_hitpt_vector = intersection - Q;
     float alpha = dot(w, cross(planar_hitpt_vector, v));
     float beta = dot(w, cross(u, planar_hitpt_vector));
 
-    if (alpha < 0 || alpha > 1 || beta < 0 || beta > 1) return res;
+    if (alpha < 0 || alpha > 1 || beta < 0 || beta > 1) return false;
 
     // Ray hits the 2D shape; set the rest of the hit record and return true.
     res.t = t;
     res.hit_pos = intersection;
     res.mat_id = u_mat_id[obj_id];;
     res.uv = vec2(alpha, beta);
-    SetFaceNormal(r, normal, res);
+    SetFaceNormal(ray, normal, res);
 
-    return res;
+    return true;
 }
 
-HitResult AbstractHit(int obj_id, Ray r) {
+bool AbstractHit(int obj_id, Ray ray, float t_min, float t_max, inout HitResult res) {
     if (u_geometry_type[obj_id] == EMPTY_GEOM) {}
     else if (u_geometry_type[obj_id] == SPHERE) {
-        return HitSphere(obj_id, r);
+        return HitSphere(obj_id, ray, t_min, t_max, res);
     }
     else if (u_geometry_type[obj_id] == QUAD) {
-        return QuadHit(obj_id, r);
+        return QuadHit(obj_id, ray, t_min, t_max, res);
     }
     else if (u_geometry_type[obj_id] == PLANE) {
-        return PlaneHit(obj_id, r);
+        return PlaneHit(obj_id, ray, t_min, t_max, res);
     }
-    HitResult res;
-    res.t = -1.0;
-    return res;
+    return false;
 }
 
-HitResult HitWorld(Ray ray) {
-    HitResult result;
-    result.t = -1.0; // by default no hit
-
-
+bool HitWorld(Ray ray, float t_min, float t_max, inout HitResult res) {
     bool hit_any = false;
     for (int i = 0; i < OBJECT_COUNT; i++) {
-        HitResult new_res = AbstractHit(i, ray);
-        if (new_res.t >= EPSILON) {
-            if (new_res.t < result.t || result.t == -1.0) {
-                result = new_res;
+        HitResult new_res;
+        if (AbstractHit(i, ray, t_min, t_max, new_res)) {
+            if (new_res.t < res.t || !hit_any) {
+                res = new_res;
             }
             hit_any = true;
-        }
+        }        
     }
-    return result;
+    return hit_any;
 }
 
 bool LambertianScatter(inout Ray r_in, inout HitResult rec, inout vec3 attenuation, inout Ray scattered) {
@@ -562,13 +559,14 @@ vec3 RayColor(Ray ray) {
     vec3 color = vec3(0.0);
     vec3 T = vec3(1.0);
     for (int bounce = 0; bounce < MAX_BOUNCES; bounce++) {
-        HitResult res = HitWorld(ray);
+        HitResult res;
+        bool hit = HitWorld(ray, EPSILON, INFINITY, res);
         if (ionly_normals) {
-            if (res.t > EPSILON) return (res.normal+1.0)/2.0;
+            if (hit) return vec3(1.0);
             return vec3(0.0);
         }
         
-        if (res.t > EPSILON) {
+        if (hit) {
             // scatter ray
             Ray scattered;
             vec3 attenuation;
