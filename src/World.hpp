@@ -307,12 +307,10 @@ private:
         objects.push_back(Hittable::Quad(Vector3{0,0,1}, Vector3{1,0,0}, Vector3{0,1,0}, 1));
 
         // tall box (left)
-        Hittable::Box(objects, Vector3{0.5, 0, 0.6}, Vector3{0.3, 0, 0}, Vector3{0, 0.6, 0}, Vector3{0, 0, 0.3}, 3);
-        Hittable::RotateBox(objects, 6, Vector3{0, 1, 0}, 20);
+        Hittable::Box(objects, Vector3{0.5, 0, 0.6}, Vector3{0.3, 0, 0}, Vector3{0, 0.6, 0}, Vector3{0, 0, 0.3}, 3, Vector3{0, 1, 0}, 20);
 
         // short box (right)
-        Hittable::Box(objects, Vector3{0.25, 0, 0.2}, Vector3{0.3, 0, 0}, Vector3{0, 0.3, 0}, Vector3{0, 0, 0.3}, 4);
-        Hittable::RotateBox(objects, 12, Vector3{0, 1, 0}, -20);
+        Hittable::Box(objects, Vector3{0.25, 0, 0.2}, Vector3{0.3, 0, 0}, Vector3{0, 0.3, 0}, Vector3{0, 0, 0.3}, 4, Vector3{0, 1, 0}, -20);
         sky_tex_id = SKY_DARK;
 
         objects.push_back(Hittable::Sphere(Vector3{0.35, 0.5, 0.4}, 0.12, 6));

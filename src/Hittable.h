@@ -37,7 +37,14 @@ struct Hittable {
         return Hittable(TRIANGLE, _material_id, _Q, _U, _V);
     }
 
-    static void Box(std::vector<Hittable>& objects, Vector3 Origin, Vector3 V1, Vector3 V2, Vector3 V3, int mat_id) {
+    static void Box(std::vector<Hittable>& objects, Vector3 Origin, Vector3 V1, Vector3 V2, Vector3 V3, int mat_id, Vector3 axis = {}, float degrees = 0.0) {
+        
+        float radians = degrees * M_PI / 180.0;
+
+        V1 = Vector3RotateByAxisAngle(V1, axis, radians);
+        V2 = Vector3RotateByAxisAngle(V2, axis, radians);
+        V3 = Vector3RotateByAxisAngle(V3, axis, radians);
+
         objects.push_back(Quad(Origin, V1, V2, mat_id));
         objects.push_back(Quad(Vector3Add(Origin, V3), V1, V2, mat_id));
 
@@ -46,20 +53,6 @@ struct Hittable {
 
         objects.push_back(Quad(Origin, V1, V3, mat_id));
         objects.push_back(Quad(Vector3Add(Origin, V2), V1, V3, mat_id));
-    }
-
-    static void RotateBox(std::vector<Hittable>& objects, int i, Vector3 axis, float degrees) {
-        Vector3 Origin = objects[i].a;
-        Vector3 V1     = objects[i].b;
-        Vector3 V2     = objects[i].c;
-        Vector3 V3     = objects[i+2].c;
-
-        float radians = degrees * M_PI / 180.0;
-
-        V1 = Vector3RotateByAxisAngle(V1, axis, radians);
-        V2 = Vector3RotateByAxisAngle(V2, axis, radians);
-        V3 = Vector3RotateByAxisAngle(V3, axis, radians);
-        Box(objects, Origin, V1, V2, V3, objects[i].material_id);
     }
 
     static void Model(std::vector<Hittable>& objects, Model model, int _material_id, Vector3 offset = Vector3{}, float scale = 1.0, Vector3 axis = {}, float degrees = 0.0) {
