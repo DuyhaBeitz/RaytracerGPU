@@ -11,9 +11,6 @@
 
 #include "CameraControl.hpp"
 
-#define MATERIAL_COUNT 100
-#define OBJECT_COUNT 850
-
 // Scenes
 #define SC_ROOM          0
 #define SC_DARK          1
@@ -130,22 +127,22 @@ private:
     int scene;
     int sky_tex_id;
 
-    Mat mats[MATERIAL_COUNT];
-    Hittable objects[OBJECT_COUNT];
+    std::vector<Mat> mats;
+    std::vector<Hittable> objects;
     std::shared_ptr<CameraControl> camera;
     
     float runTime = 0.f;
     bool only_normals = false;
 
     void ApplyMaterialUniforms(Shader& shader) {
-        Vector3 u_albedo[MATERIAL_COUNT];
-        int u_mat_type[MATERIAL_COUNT];
-        int u_tex_id[MATERIAL_COUNT];
-        int u_emit_tex_id[MATERIAL_COUNT];
-        float u_fuzz[MATERIAL_COUNT];
-        float u_refraction_index[MATERIAL_COUNT];
+        Vector3 u_albedo[mats.size()];
+        int u_mat_type[mats.size()];
+        int u_tex_id[mats.size()];
+        int u_emit_tex_id[mats.size()];
+        float u_fuzz[mats.size()];
+        float u_refraction_index[mats.size()];
 
-        for (int i = 0; i < MATERIAL_COUNT; i++) {
+        for (int i = 0; i < mats.size(); i++) {
             u_albedo[i].x = mats[i].albedo.x;
             u_albedo[i].y = mats[i].albedo.y;
             u_albedo[i].z = mats[i].albedo.z;
@@ -156,28 +153,28 @@ private:
             u_refraction_index[i] = mats[i].refraction_index;
         }
         
-        SetShaderValueV(shader, GetShaderLocation(shader, "u_albedo"), &u_albedo[0].x, SHADER_UNIFORM_VEC3, MATERIAL_COUNT);
-        SetShaderValueV(shader, GetShaderLocation(shader, "u_mat_type"), u_mat_type, SHADER_UNIFORM_INT, MATERIAL_COUNT);
-        SetShaderValueV(shader, GetShaderLocation(shader, "u_tex_id"), u_tex_id, SHADER_UNIFORM_INT, MATERIAL_COUNT);
-        SetShaderValueV(shader, GetShaderLocation(shader, "u_emit_tex_id"), u_emit_tex_id, SHADER_UNIFORM_INT, MATERIAL_COUNT);
-        SetShaderValueV(shader, GetShaderLocation(shader, "u_fuzz"), u_fuzz, SHADER_UNIFORM_FLOAT, MATERIAL_COUNT);
-        SetShaderValueV(shader, GetShaderLocation(shader, "u_refraction_index"), u_refraction_index, SHADER_UNIFORM_FLOAT, MATERIAL_COUNT);
+        SetShaderValueV(shader, GetShaderLocation(shader, "u_albedo"), &u_albedo[0].x, SHADER_UNIFORM_VEC3, mats.size());
+        SetShaderValueV(shader, GetShaderLocation(shader, "u_mat_type"), u_mat_type, SHADER_UNIFORM_INT, mats.size());
+        SetShaderValueV(shader, GetShaderLocation(shader, "u_tex_id"), u_tex_id, SHADER_UNIFORM_INT, mats.size());
+        SetShaderValueV(shader, GetShaderLocation(shader, "u_emit_tex_id"), u_emit_tex_id, SHADER_UNIFORM_INT, mats.size());
+        SetShaderValueV(shader, GetShaderLocation(shader, "u_fuzz"), u_fuzz, SHADER_UNIFORM_FLOAT, mats.size());
+        SetShaderValueV(shader, GetShaderLocation(shader, "u_refraction_index"), u_refraction_index, SHADER_UNIFORM_FLOAT, mats.size());
 
         SetShaderValue(shader, GetShaderLocation(shader, "u_sky_tex_id"), &sky_tex_id, SHADER_UNIFORM_INT);
     }
 
     void ApplyObjectUniforms(Shader& shader) {
-        int u_geometry_type[OBJECT_COUNT];
-        int u_mat_id[OBJECT_COUNT];
-        Vector3 u_a[OBJECT_COUNT];
-        Vector3 u_b[OBJECT_COUNT];
-        Vector3 u_c[OBJECT_COUNT];
+        int u_geometry_type[objects.size()];
+        int u_mat_id[objects.size()];
+        Vector3 u_a[objects.size()];
+        Vector3 u_b[objects.size()];
+        Vector3 u_c[objects.size()];
 
-        Vector3 u_n[OBJECT_COUNT];
-        float u_D[OBJECT_COUNT];
-        Vector3 u_w[OBJECT_COUNT];
+        Vector3 u_n[objects.size()];
+        float u_D[objects.size()];
+        Vector3 u_w[objects.size()];
 
-        for (int i = 0; i < OBJECT_COUNT; i++) {
+        for (int i = 0; i < objects.size(); i++) {
             u_geometry_type[i] = objects[i].geometry_type;
             u_mat_id[i] = objects[i].material_id;
             u_a[i] = objects[i].a;
@@ -197,15 +194,18 @@ private:
             }           
         }
 
-        SetShaderValueV(shader, GetShaderLocation(shader, "u_geometry_type"), u_geometry_type, SHADER_UNIFORM_INT, OBJECT_COUNT);
-        SetShaderValueV(shader, GetShaderLocation(shader, "u_mat_id"), u_mat_id, SHADER_UNIFORM_INT, OBJECT_COUNT);
-        SetShaderValueV(shader, GetShaderLocation(shader, "u_a"), &u_a[0].x, SHADER_UNIFORM_VEC3, OBJECT_COUNT);
-        SetShaderValueV(shader, GetShaderLocation(shader, "u_b"), &u_b[0].x, SHADER_UNIFORM_VEC3, OBJECT_COUNT);
-        SetShaderValueV(shader, GetShaderLocation(shader, "u_c"), &u_c[0].x, SHADER_UNIFORM_VEC3, OBJECT_COUNT);
+        SetShaderValueV(shader, GetShaderLocation(shader, "u_geometry_type"), u_geometry_type, SHADER_UNIFORM_INT, objects.size());
+        SetShaderValueV(shader, GetShaderLocation(shader, "u_mat_id"), u_mat_id, SHADER_UNIFORM_INT, objects.size());
+        SetShaderValueV(shader, GetShaderLocation(shader, "u_a"), &u_a[0].x, SHADER_UNIFORM_VEC3, objects.size());
+        SetShaderValueV(shader, GetShaderLocation(shader, "u_b"), &u_b[0].x, SHADER_UNIFORM_VEC3, objects.size());
+        SetShaderValueV(shader, GetShaderLocation(shader, "u_c"), &u_c[0].x, SHADER_UNIFORM_VEC3, objects.size());
         
-        SetShaderValueV(shader, GetShaderLocation(shader, "u_n"), &u_n[0].x, SHADER_UNIFORM_VEC3, OBJECT_COUNT);
-        SetShaderValueV(shader, GetShaderLocation(shader, "u_D"), u_D, SHADER_UNIFORM_FLOAT, OBJECT_COUNT);
-        SetShaderValueV(shader, GetShaderLocation(shader, "u_w"), &u_w[0].x, SHADER_UNIFORM_VEC3, OBJECT_COUNT);
+        SetShaderValueV(shader, GetShaderLocation(shader, "u_n"), &u_n[0].x, SHADER_UNIFORM_VEC3, objects.size());
+        SetShaderValueV(shader, GetShaderLocation(shader, "u_D"), u_D, SHADER_UNIFORM_FLOAT, objects.size());
+        SetShaderValueV(shader, GetShaderLocation(shader, "u_w"), &u_w[0].x, SHADER_UNIFORM_VEC3, objects.size());
+
+        int obj_count = objects.size();
+        SetShaderValue(shader, GetShaderLocation(shader, "u_object_count"), &obj_count, SHADER_UNIFORM_INT);
     }
 
     void HandleInput() {
@@ -235,19 +235,18 @@ private:
         camera->Position = Vector3{3,3,3};
         camera->yaw   = M_PI*1.41;
 
-        mats[0] = Mat(YELLOW, LAMBERTIAN);
-        objects[0] = Hittable::Sphere(Vector3{0, 0, -3}, 1, 0);
+        mats.push_back(Mat(YELLOW, LAMBERTIAN));
+        mats.push_back(Mat(WHITE, DIELECTRIC, -1, -1, 0.0, 1/1.3));
+        mats.push_back(Mat(RED, METAL, -1, -1, 0.0, 0.0));
 
-        mats[1] = Mat(WHITE, DIELECTRIC, -1, -1, 0.0, 1/1.3);
-        objects[1] = Hittable::Sphere(Vector3{0, 0, 0}, 1, 1);        
-
-        mats[2] = Mat(RED, METAL, -1, -1, 0.0, 0.0);
-        objects[2] = Hittable::Sphere(Vector3{0, 0, 3}, 1, 2);        
+        objects.push_back(Hittable::Sphere(Vector3{0, 0, -3}, 1, 0));
+        objects.push_back(Hittable::Sphere(Vector3{0, 0, 0}, 1, 1));        
+        objects.push_back(Hittable::Sphere(Vector3{0, 0, 3}, 1, 2));        
 
         sky_tex_id = 1;
 
         Model model = LoadModel("assets/monkey.glb");
-        Hittable::Model(objects, 3, model, 2, Vector3{0, 0, 6}, 1, Vector3{0, 1, 0}, -90);
+        Hittable::Model(objects, model, 2, Vector3{0, 0, 6}, 1, Vector3{0, 1, 0}, -90);
     }
 
     void Dark() {
@@ -255,20 +254,18 @@ private:
         camera->Position = Vector3{3,3,3};
         camera->yaw   = M_PI*1.41;
 
-        mats[0] = Mat(YELLOW, LAMBERTIAN);
-        objects[0] = Hittable::Sphere(Vector3{0, 0, -3}, 1, 0);
+        mats.push_back(Mat(YELLOW, LAMBERTIAN));
+        mats.push_back(Mat(WHITE, DIELECTRIC, -1, -1, 0.0, 1/1.3));
+        mats.push_back(Mat(RED, METAL));
+        mats.push_back(Mat(WHITE, DIFFUSE_LIGHT));
 
-        mats[1] = Mat(WHITE, DIELECTRIC, -1, -1, 0.0, 1/1.3);
-        objects[1] = Hittable::Sphere(Vector3{0, 0, 0}, 1, 1);        
-
-        mats[2] = Mat(RED, METAL);
-        objects[2] = Hittable::Sphere(Vector3{0, 0, 3}, 1, 2);        
-
-        mats[3] = Mat(WHITE, DIFFUSE_LIGHT);
+        objects.push_back(Hittable::Sphere(Vector3{0, 0, -3}, 1, 0));
+        objects.push_back(Hittable::Sphere(Vector3{0, 0, 0}, 1, 1));        
+        objects.push_back(Hittable::Sphere(Vector3{0, 0, 3}, 1, 2));      
         
         float Y = 3;
         float Z = 6;
-        objects[3] = Hittable::Quad(Vector3{-4, -Y/2, -Z/2}, Vector3{0, Y, 0}, Vector3{0, 0, Z}, 3);
+        objects.push_back(Hittable::Quad(Vector3{-4, -Y/2, -Z/2}, Vector3{0, Y, 0}, Vector3{0, 0, Z}, 3));
 
         sky_tex_id = SKY_DARK;
     }
@@ -290,39 +287,38 @@ private:
         Mat glass = Mat(WHITE, DIELECTRIC, -1, -1, 0.0, 1/1.3);
         Mat metal = Mat(WHITE, METAL, -1, -1, 0.0, 0.0);
 
-        mats[0] = red;
-        mats[1] = white;
-        mats[2] = green;
-        mats[3] = light;
-        mats[4] = glass;
-        mats[5] = metal;
-        mats[6] = blue;
-        mats[7] = yellow;
+        mats.push_back(red); // 0
+        mats.push_back(white); // 1
+        mats.push_back(green); // 2
+        mats.push_back(blue); // 3
+        mats.push_back(yellow); // 4
+        mats.push_back(light); // 5
+        mats.push_back(glass); // 6
+        mats.push_back(metal); // 7
         
-        objects[0] = Hittable::Quad(Vector3{1,0,0}, Vector3{0,1,0}, Vector3{0,0,1}, 2);
-        objects[1] = Hittable::Quad(Vector3{0,0,0}, Vector3{0,1,0}, Vector3{0,0,1}, 0);
+        objects.push_back(Hittable::Quad(Vector3{1,0,0}, Vector3{0,1,0}, Vector3{0,0,1}, 2));
+        objects.push_back(Hittable::Quad(Vector3{0,0,0}, Vector3{0,1,0}, Vector3{0,0,1}, 0));
 
         // light quad
-        objects[2] = Hittable::Quad(Vector3{0.8, 1, 0.7}, Vector3{-0.6,0,0}, Vector3{0,0,-0.6}, 3);
+        objects.push_back(Hittable::Quad(Vector3{0.8, 1, 0.7}, Vector3{-0.6,0,0}, Vector3{0,0,-0.6}, 5));
 
-        objects[3] = Hittable::Quad(Vector3{0,0,0}, Vector3{1,0,0}, Vector3{0,0,1}, 1);
-        objects[4] = Hittable::Quad(Vector3{1,1,1}, Vector3{-1,0,0}, Vector3{0,0,-1}, 1);
-        objects[5] = Hittable::Quad(Vector3{0,0,1}, Vector3{1,0,0}, Vector3{0,1,0}, 1);
+        objects.push_back(Hittable::Quad(Vector3{0,0,0}, Vector3{1,0,0}, Vector3{0,0,1}, 1));
+        objects.push_back(Hittable::Quad(Vector3{1,1,1}, Vector3{-1,0,0}, Vector3{0,0,-1}, 1));
+        objects.push_back(Hittable::Quad(Vector3{0,0,1}, Vector3{1,0,0}, Vector3{0,1,0}, 1));
 
         // tall box (left)
-        Hittable::Box(objects, 6, Vector3{0.5, 0, 0.6}, Vector3{0.3, 0, 0}, Vector3{0, 0.6, 0}, Vector3{0, 0, 0.3}, 6);
+        Hittable::Box(objects, Vector3{0.5, 0, 0.6}, Vector3{0.3, 0, 0}, Vector3{0, 0.6, 0}, Vector3{0, 0, 0.3}, 3);
         Hittable::RotateBox(objects, 6, Vector3{0, 1, 0}, 20);
 
         // short box (right)
-        Hittable::Box(objects, 12, Vector3{0.25, 0, 0.2}, Vector3{0.3, 0, 0}, Vector3{0, 0.3, 0}, Vector3{0, 0, 0.3}, 7);
+        Hittable::Box(objects, Vector3{0.25, 0, 0.2}, Vector3{0.3, 0, 0}, Vector3{0, 0.3, 0}, Vector3{0, 0, 0.3}, 4);
         Hittable::RotateBox(objects, 12, Vector3{0, 1, 0}, -20);
         sky_tex_id = SKY_DARK;
 
-        
-        objects[18] = Hittable::Sphere(Vector3{0.35, 0.5, 0.4}, 0.12, 4);
+        objects.push_back(Hittable::Sphere(Vector3{0.35, 0.5, 0.4}, 0.12, 6));
 
         Model model = LoadModel("assets/monkey.glb");
-        Hittable::Model(objects, 19, model, 5, Vector3{0.68, 0.72, 0.5}, 0.13, Vector3{0, 1, 0}, 180+10);
+        Hittable::Model(objects, model, 7, Vector3{0.68, 0.72, 0.5}, 0.13, Vector3{0, 1, 0}, 180+10);
     }
 
     void TriangleTest() {
@@ -337,15 +333,15 @@ private:
         Mat green = Mat(Vector3{0.12, 0.45, 0.15}, LAMBERTIAN);
         Mat light = Mat(Vector3{2, 2, 2}, DIFFUSE_LIGHT);
 
-        mats[0] = red;
-        mats[1] = white;
-        mats[2] = green;
-        mats[3] = light;
+        mats.push_back(red);
+        mats.push_back(white);
+        mats.push_back(green);
+        mats.push_back(light);
 
         Model model = LoadModel("assets/monkey.glb");
 
         //objects[0] = Hittable::Triangle(Vector3{-1.0, -1.0, 3.0}, Vector3{0.0, 2.0, 0.0}, Vector3{2.0, 0.0, 0.0}, 3);
-        Hittable::Model(objects, 0, model, 3);
+        Hittable::Model(objects, model, 3);
 
         sky_tex_id = SKY_DARK;
     }

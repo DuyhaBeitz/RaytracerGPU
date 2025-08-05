@@ -31,18 +31,62 @@ const float PI        = 3.14159265359;
 const float INFINITY = 100000000.0;
 const float EPSILON = 0.0001;
 
-#define MATERIAL_COUNT 100
-#define OBJECT_COUNT   850
+const int MATERIAL_COUNT   = 100;
+const int MAX_OBJECT_COUNT = 850;
 
 // Material types
-#define LAMBERTIAN    0
-#define METAL         1
-#define DIELECTRIC    2
-#define DIFFUSE_LIGHT 3
+const int LAMBERTIAN    = 0;
+const int METAL         = 1;
+const int DIELECTRIC    = 2;
+const int DIFFUSE_LIGHT = 3;
 
 // Procedural sky
-#define SKY_DARK -2
-#define SKY_BLUE -1
+const int SKY_DARK = -2;
+const int SKY_BLUE = -1;
+
+uniform int u_sky_tex_id;
+uniform vec3 u_albedo[MATERIAL_COUNT];
+uniform int u_mat_type[MATERIAL_COUNT];
+uniform int u_tex_id[MATERIAL_COUNT];
+uniform int u_emit_tex_id[MATERIAL_COUNT];
+uniform float u_fuzz[MATERIAL_COUNT];
+uniform float u_refraction_index[MATERIAL_COUNT];
+
+const int EMPTY_GEOM = -1;
+const int SPHERE     = 0;
+const int PLANE      = 1;
+const int QUAD       = 2;
+const int TRIANGLE   = 3;
+
+uniform int u_object_count;
+uniform int u_geometry_type[MAX_OBJECT_COUNT];
+uniform int u_mat_id[MAX_OBJECT_COUNT];
+uniform vec3 u_a[MAX_OBJECT_COUNT]; // center for spheres
+uniform vec3 u_b[MAX_OBJECT_COUNT]; // .x is radius for sheres
+uniform vec3 u_c[MAX_OBJECT_COUNT];
+
+// Quad/plane variables (caching to speed up)
+uniform vec3 u_n[MAX_OBJECT_COUNT];
+uniform float u_D[MAX_OBJECT_COUNT];
+uniform vec3 u_w[MAX_OBJECT_COUNT];
+
+uniform sampler2D tex0;
+uniform sampler2D tex1;
+uniform sampler2D tex2;
+uniform sampler2D tex3;
+uniform sampler2D tex4;
+uniform sampler2D tex5;
+uniform sampler2D tex6;
+uniform sampler2D tex7;
+uniform sampler2D tex8;
+uniform sampler2D tex9;
+uniform sampler2D tex10;
+uniform sampler2D tex11;
+uniform sampler2D tex12;
+uniform sampler2D tex13;
+uniform sampler2D tex14;
+uniform sampler2D tex15;
+
 
 // A single iteration of Bob Jenkins' One-At-A-Time hashing algorithm.
 uint hash( uint x ) {
@@ -198,48 +242,6 @@ vec3 RayAt(Ray ray, float t) {
 bool Vec3NearZero(in vec3 v) {
     return abs(v.x) < 0.0000001 && abs(v.y) < 0.0000001 && abs(v.z) < 0.0000001;
 }
-
-uniform int u_sky_tex_id;
-uniform vec3 u_albedo[MATERIAL_COUNT];
-uniform int u_mat_type[MATERIAL_COUNT];
-uniform int u_tex_id[MATERIAL_COUNT];
-uniform int u_emit_tex_id[MATERIAL_COUNT];
-uniform float u_fuzz[MATERIAL_COUNT];
-uniform float u_refraction_index[MATERIAL_COUNT];
-
-#define EMPTY_GEOM -1
-#define SPHERE      0
-#define PLANE       1
-#define QUAD        2
-#define TRIANGLE    3
-
-uniform int u_geometry_type[OBJECT_COUNT];
-uniform int u_mat_id[OBJECT_COUNT];
-uniform vec3 u_a[OBJECT_COUNT]; // center for spheres
-uniform vec3 u_b[OBJECT_COUNT]; // .x is radius for sheres
-uniform vec3 u_c[OBJECT_COUNT];
-
-// Quad/plane variables (caching to speed up)
-uniform vec3 u_n[OBJECT_COUNT];
-uniform float u_D[OBJECT_COUNT];
-uniform vec3 u_w[OBJECT_COUNT];
-
-uniform sampler2D tex0;
-uniform sampler2D tex1;
-uniform sampler2D tex2;
-uniform sampler2D tex3;
-uniform sampler2D tex4;
-uniform sampler2D tex5;
-uniform sampler2D tex6;
-uniform sampler2D tex7;
-uniform sampler2D tex8;
-uniform sampler2D tex9;
-uniform sampler2D tex10;
-uniform sampler2D tex11;
-uniform sampler2D tex12;
-uniform sampler2D tex13;
-uniform sampler2D tex14;
-uniform sampler2D tex15;
 
 vec4 GetTextureColor(vec2 uv, int tex_id) {
     if (tex_id == 0) return texture2D(tex0, uv);
@@ -436,7 +438,7 @@ bool AbstractHit(int obj_id, Ray ray, float t_min, float t_max, inout HitResult 
 
 bool HitWorld(Ray ray, float t_min, float t_max, inout HitResult res) {
     bool hit_any = false;
-    for (int i = 0; i < OBJECT_COUNT; i++) {
+    for (int i = 0; i < u_object_count; i++) {
         HitResult new_res;
         if (AbstractHit(i, ray, t_min, t_max, new_res)) {
             if (new_res.t < res.t || !hit_any) {

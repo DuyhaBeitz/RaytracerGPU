@@ -8,7 +8,10 @@ struct CameraControl {
     float yaw = 0.0f;
     float pitch = 0.0f;
     float mouseSensitivity = 0.005;
+
     float speed = 1.0;
+    float fast_speed = 5.0;
+
     float vfov = 90.0;
     float defocus_angle = 0.0;
     float focus_dist = 0.5;
@@ -100,7 +103,7 @@ struct CameraControl {
             Velocity += GetRightVector() * float(dr) * GetFrameTime();
             Velocity += vup * float(du) * GetFrameTime();
     
-            Position += Velocity*speed;
+            Position += Velocity* ((IsKeyDown(KEY_LEFT_SHIFT) ? fast_speed : speed));
             if (Velocity != Vector3{0.0}) RestartAccum();
     
             // otherwise shader crashes

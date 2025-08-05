@@ -37,18 +37,18 @@ struct Hittable {
         return Hittable(TRIANGLE, _material_id, _Q, _U, _V);
     }
 
-    static void Box(Hittable objects[], int i, Vector3 Origin, Vector3 V1, Vector3 V2, Vector3 V3, int mat_id) {
-        objects[i] = Quad(Origin, V1, V2, mat_id);
-        objects[i+1] = Quad(Vector3Add(Origin, V3), V1, V2, mat_id);
+    static void Box(std::vector<Hittable>& objects, Vector3 Origin, Vector3 V1, Vector3 V2, Vector3 V3, int mat_id) {
+        objects.push_back(Quad(Origin, V1, V2, mat_id));
+        objects.push_back(Quad(Vector3Add(Origin, V3), V1, V2, mat_id));
 
-        objects[i+2] = Quad(Origin, V2, V3, mat_id);
-        objects[i+3] = Quad(Vector3Add(Origin, V1), V2, V3, mat_id);
+        objects.push_back(Quad(Origin, V2, V3, mat_id));
+        objects.push_back(Quad(Vector3Add(Origin, V1), V2, V3, mat_id));
 
-        objects[i+4] = Quad(Origin, V1, V3, mat_id);
-        objects[i+5] = Quad(Vector3Add(Origin, V2), V1, V3, mat_id);
+        objects.push_back(Quad(Origin, V1, V3, mat_id));
+        objects.push_back(Quad(Vector3Add(Origin, V2), V1, V3, mat_id));
     }
 
-    static void RotateBox(Hittable objects[], int i, Vector3 axis, float degrees) {
+    static void RotateBox(std::vector<Hittable>& objects, int i, Vector3 axis, float degrees) {
         Vector3 Origin = objects[i].a;
         Vector3 V1     = objects[i].b;
         Vector3 V2     = objects[i].c;
@@ -59,11 +59,10 @@ struct Hittable {
         V1 = Vector3RotateByAxisAngle(V1, axis, radians);
         V2 = Vector3RotateByAxisAngle(V2, axis, radians);
         V3 = Vector3RotateByAxisAngle(V3, axis, radians);
-        Box(objects, i, Origin, V1, V2, V3, objects[i].material_id);
+        Box(objects, Origin, V1, V2, V3, objects[i].material_id);
     }
 
-    static void Model(Hittable objects[], int i, Model model, int _material_id, Vector3 offset = Vector3{}, float scale = 1.0, Vector3 axis = {}, float degrees = 0.0) {
-        int triangles_added = 0;
+    static void Model(std::vector<Hittable>& objects, Model model, int _material_id, Vector3 offset = Vector3{}, float scale = 1.0, Vector3 axis = {}, float degrees = 0.0) {
         float radians = degrees * M_PI / 180.0;
 
         for (int m = 0; m < model.meshCount; m++) {
@@ -100,8 +99,7 @@ struct Hittable {
                 Vector3 U = Vector3Subtract(v1, Q);
                 Vector3 V = Vector3Subtract(v2, Q);
 
-                objects[i+triangles_added] = Triangle(Q, U, V, _material_id);
-                triangles_added++;
+                objects.push_back(Triangle(Q, U, V, _material_id));
             }
         }
     }
