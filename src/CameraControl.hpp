@@ -8,7 +8,7 @@ struct CameraControl {
     float yaw = 0.0f;
     float pitch = 0.0f;
     float mouseSensitivity = 0.005;
-    float speed = 5.0;
+    float speed = 1.0;
     float vfov = 90.0;
     float defocus_angle = 0.0;
     float focus_dist = 0.5;

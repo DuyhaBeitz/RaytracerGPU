@@ -32,7 +32,7 @@ const float INFINITY = 100000000.0;
 const float EPSILON = 0.0001;
 
 #define MATERIAL_COUNT 100
-#define OBJECT_COUNT   18
+#define OBJECT_COUNT   850
 
 // Material types
 #define LAMBERTIAN    0
@@ -640,8 +640,7 @@ void main() {
 
     for (int i = 0; i < SAMPLES; ++i) {
         vec2 offset = vec2(float(i) / float(SAMPLES), fract(sin(float(i)*13.37*iTime)));
-        Ray ray = getRay(fragTexCoord+offset*EPSILON);
-        col += RayColor(ray);
+        col += RayColor(getRay(fragTexCoord+offset*EPSILON));
     }
     col /= float(SAMPLES);
 

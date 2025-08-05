@@ -12,7 +12,7 @@
 #include "CameraControl.hpp"
 
 #define MATERIAL_COUNT 100
-#define OBJECT_COUNT 18
+#define OBJECT_COUNT 850
 
 // Scenes
 #define SC_ROOM          0
@@ -27,7 +27,7 @@
 #define SKY_DARK -2
 #define SKY_BLUE -1
 
-#define downscale 4.0
+#define downscale 16.0
 
 class World {
 public:
@@ -81,10 +81,9 @@ public:
     }
 
     std::vector<Texture2D> LoadTexturesForScene() {
+        std::cout << "\nLoading Textures\n";
         std::vector<Texture2D> textures;
-        switch (scene)
-        {
-
+        switch (scene) {
         case SC_ROOM:
         case SC_DARK:
             textures.push_back(LoadTexture("assets/earthmap.png"));
@@ -102,6 +101,27 @@ public:
         }
         return textures;
     }
+
+    // std::vector<Model> LoadModelsForScene() {
+    //     std::cout << "\nLoading models\n";
+    //     std::vector<Model> models;
+    //     switch (scene) {
+    //         case SC_ROOM:
+    //             break;
+    //         case SC_DARK:
+    //             break;
+    //         case SC_CORNELL_BOX:
+    //             break;
+    //         case SC_TRIANGLE_TEST:
+    //             models.push_back(LoadModel("assets/monkey.glb"));
+    //             std::cout << "\ntriangles: " << models[0].meshes[0].triangleCount << '\n';
+    //             break;
+
+    //         default:
+    //             break;
+    //     }
+    //     return models;
+    // }
 
     std::shared_ptr<CameraControl> GetCamera() { return camera; }
 
@@ -225,6 +245,9 @@ private:
         objects[2] = Hittable::Sphere(Vector3{0, 0, 3}, 1, 2);        
 
         sky_tex_id = 1;
+
+        Model model = LoadModel("assets/monkey.glb");
+        Hittable::Model(objects, 3, model, 2, Vector3{0, 0, 6}, 1, Vector3{0, 1, 0}, -90);
     }
 
     void Dark() {
@@ -260,12 +283,21 @@ private:
         Mat red   = Mat(Vector3{0.65, 0.05, 0.05}, LAMBERTIAN);
         Mat white = Mat(Vector3{0.73, 0.73, 0.73}, LAMBERTIAN);
         Mat green = Mat(Vector3{0.12, 0.45, 0.15}, LAMBERTIAN);
+        Mat blue = Mat(BLUE, LAMBERTIAN);
+        Mat yellow = Mat(YELLOW, LAMBERTIAN);
+
         Mat light = Mat(Vector3{2, 2, 2}, DIFFUSE_LIGHT);
+        Mat glass = Mat(WHITE, DIELECTRIC, -1, -1, 0.0, 1/1.3);
+        Mat metal = Mat(WHITE, METAL, -1, -1, 0.0, 0.0);
 
         mats[0] = red;
         mats[1] = white;
         mats[2] = green;
         mats[3] = light;
+        mats[4] = glass;
+        mats[5] = metal;
+        mats[6] = blue;
+        mats[7] = yellow;
         
         objects[0] = Hittable::Quad(Vector3{1,0,0}, Vector3{0,1,0}, Vector3{0,0,1}, 2);
         objects[1] = Hittable::Quad(Vector3{0,0,0}, Vector3{0,1,0}, Vector3{0,0,1}, 0);
@@ -278,19 +310,26 @@ private:
         objects[5] = Hittable::Quad(Vector3{0,0,1}, Vector3{1,0,0}, Vector3{0,1,0}, 1);
 
         // tall box (left)
-        Hittable::Box(objects, 6, Vector3{0.5, 0, 0.6}, Vector3{0.3, 0, 0}, Vector3{0, 0.6, 0}, Vector3{0, 0, 0.3}, 1);
+        Hittable::Box(objects, 6, Vector3{0.5, 0, 0.6}, Vector3{0.3, 0, 0}, Vector3{0, 0.6, 0}, Vector3{0, 0, 0.3}, 6);
         Hittable::RotateBox(objects, 6, Vector3{0, 1, 0}, 20);
 
         // short box (right)
-        Hittable::Box(objects, 12, Vector3{0.25, 0, 0.2}, Vector3{0.3, 0, 0}, Vector3{0, 0.3, 0}, Vector3{0, 0, 0.3}, 1);
+        Hittable::Box(objects, 12, Vector3{0.25, 0, 0.2}, Vector3{0.3, 0, 0}, Vector3{0, 0.3, 0}, Vector3{0, 0, 0.3}, 7);
         Hittable::RotateBox(objects, 12, Vector3{0, 1, 0}, -20);
         sky_tex_id = SKY_DARK;
+
+        
+        objects[18] = Hittable::Sphere(Vector3{0.35, 0.5, 0.4}, 0.12, 4);
+
+        Model model = LoadModel("assets/monkey.glb");
+        Hittable::Model(objects, 19, model, 5, Vector3{0.68, 0.72, 0.5}, 0.13, Vector3{0, 1, 0}, 180+10);
     }
 
     void TriangleTest() {
-        camera->updating = false;
+        camera->updating = true;
         camera->vfov     = 90;
-        camera->Position = Vector3{0.0, 0.0, 0};
+        camera->Position = Vector3{0.0, 0.0, 4};
+        camera->yaw = M_PI;
         camera->defocus_angle = 0;
 
         Mat red   = Mat(Vector3{0.65, 0.05, 0.05}, LAMBERTIAN);
@@ -303,7 +342,10 @@ private:
         mats[2] = green;
         mats[3] = light;
 
-        objects[0] = Hittable::Triangle(Vector3{-1.0, -1.0, 3.0}, Vector3{0.0, 2.0, 0.0}, Vector3{2.0, 0.0, 0.0}, 3);
+        Model model = LoadModel("assets/monkey.glb");
+
+        //objects[0] = Hittable::Triangle(Vector3{-1.0, -1.0, 3.0}, Vector3{0.0, 2.0, 0.0}, Vector3{2.0, 0.0, 0.0}, 3);
+        Hittable::Model(objects, 0, model, 3);
 
         sky_tex_id = SKY_DARK;
     }

@@ -14,6 +14,7 @@ Shader shader;
 
 std::shared_ptr<World> world;
 std::vector<Texture2D> textures;
+//std::vector<Model> models;
 
 bool show_info = false;
 
@@ -63,8 +64,9 @@ bool Init() {
 
     shader = LoadShader(0, "assets/RTX_GPU.frag");
 
-    world = std::make_shared<World>(SC_TRIANGLE_TEST);
+    world = std::make_shared<World>(SC_CORNELL_BOX);
     textures = world->LoadTexturesForScene();
+    //models = world->LoadModelsForScene();
 
     Texture2D shapes_texture = { rlGetTextureIdDefault(), 1, 1, 1, PIXELFORMAT_UNCOMPRESSED_R8G8B8A8 };
     SetShapesTexture(shapes_texture, (Rectangle){ 0.0f, 0.0f, 1.0f, 1.0f });

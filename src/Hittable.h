@@ -61,5 +61,49 @@ struct Hittable {
         V3 = Vector3RotateByAxisAngle(V3, axis, radians);
         Box(objects, i, Origin, V1, V2, V3, objects[i].material_id);
     }
+
+    static void Model(Hittable objects[], int i, Model model, int _material_id, Vector3 offset = Vector3{}, float scale = 1.0, Vector3 axis = {}, float degrees = 0.0) {
+        int triangles_added = 0;
+        float radians = degrees * M_PI / 180.0;
+
+        for (int m = 0; m < model.meshCount; m++) {
+            Mesh mesh = model.meshes[m];
+            
+            for (int j = 0; j < mesh.triangleCount * 3; j += 3) {
+                unsigned short i0 = mesh.indices[j + 0];
+                unsigned short i1 = mesh.indices[j + 1];
+                unsigned short i2 = mesh.indices[j + 2];
+            
+                Vector3 v0 = { mesh.vertices[i0 * 3 + 0], mesh.vertices[i0 * 3 + 1], mesh.vertices[i0 * 3 + 2] };
+                Vector3 v1 = { mesh.vertices[i1 * 3 + 0], mesh.vertices[i1 * 3 + 1], mesh.vertices[i1 * 3 + 2] };
+                Vector3 v2 = { mesh.vertices[i2 * 3 + 0], mesh.vertices[i2 * 3 + 1], mesh.vertices[i2 * 3 + 2] };
+            
+
+                v0 = Vector3RotateByAxisAngle(v0, axis, radians);
+                v1 = Vector3RotateByAxisAngle(v1, axis, radians);
+                v2 = Vector3RotateByAxisAngle(v2, axis, radians);
+
+                v0 = Vector3Scale(v0, scale);
+                v1 = Vector3Scale(v1, scale);
+                v2 = Vector3Scale(v2, scale);
+
+                v0 = Vector3Add(v0, offset);
+                v1 = Vector3Add(v1, offset);
+                v2 = Vector3Add(v2, offset);
+
+
+                Vector2 uv0 = { mesh.texcoords[i0 * 2 + 0], mesh.texcoords[i0 * 2 + 1] };
+                Vector2 uv1 = { mesh.texcoords[i1 * 2 + 0], mesh.texcoords[i1 * 2 + 1] };
+                Vector2 uv2 = { mesh.texcoords[i2 * 2 + 0], mesh.texcoords[i2 * 2 + 1] };
+            
+                Vector3 Q = v0;
+                Vector3 U = Vector3Subtract(v1, Q);
+                Vector3 V = Vector3Subtract(v2, Q);
+
+                objects[i+triangles_added] = Triangle(Q, U, V, _material_id);
+                triangles_added++;
+            }
+        }
+    }
 };
 
