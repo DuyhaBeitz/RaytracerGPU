@@ -7,6 +7,7 @@
 #define SPHERE      0
 #define PLANE       1
 #define QUAD        2
+#define TRIANGLE    3
 
 struct Hittable {
     int geometry_type = EMPTY_GEOM;
@@ -30,6 +31,10 @@ struct Hittable {
 
     static Hittable Quad(Vector3 _Q, Vector3 _U, Vector3 _V, int _material_id) {
         return Hittable(QUAD, _material_id, _Q, _U, _V);
+    }
+
+    static Hittable Triangle(Vector3 _Q, Vector3 _U, Vector3 _V, int _material_id) {
+        return Hittable(TRIANGLE, _material_id, _Q, _U, _V);
     }
 
     static void Box(Hittable objects[], int i, Vector3 Origin, Vector3 V1, Vector3 V2, Vector3 V3, int mat_id) {

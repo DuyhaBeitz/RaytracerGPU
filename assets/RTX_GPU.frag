@@ -15,7 +15,7 @@ uniform vec3 lookfrom = vec3(0,0,0);   // Point camera is looking from
 uniform vec3 lookat   = vec3(0,0,-1);  // Point camera is looking at
 vec3 vup              = vec3(0,1,0);   // Camera-relative "up" direction
 
-uniform bool ionly_normals = false;
+uniform bool ionly_normals;
 
 vec3 defocus_disk_u;
 vec3 defocus_disk_v;
@@ -24,7 +24,7 @@ vec3 pixel00_loc;
 vec3 pixel_delta_u;
 vec3 pixel_delta_v;
 
-const int MAX_BOUNCES = 8;
+const int MAX_BOUNCES = 5;
 const int SAMPLES     = 8;
 const float PI        = 3.14159265359;
 
@@ -211,6 +211,7 @@ uniform float u_refraction_index[MATERIAL_COUNT];
 #define SPHERE      0
 #define PLANE       1
 #define QUAD        2
+#define TRIANGLE    3
 
 uniform int u_geometry_type[OBJECT_COUNT];
 uniform int u_mat_id[OBJECT_COUNT];
@@ -353,7 +354,7 @@ bool HitSphere(int obj_id, Ray ray, float t_min, float t_max, inout HitResult re
     }
 }
 
-bool PlaneHit(int obj_id, Ray ray, float t_min, float t_max, inout HitResult res) {
+bool PlaneHit(int obj_id, Ray ray, float t_min, float t_max, inout HitResult res, inout float alpha, inout float beta) {
     
     // finding plane
     vec3 Q = u_a[obj_id];
@@ -378,8 +379,8 @@ bool PlaneHit(int obj_id, Ray ray, float t_min, float t_max, inout HitResult res
     // Determine if the hit point lies within the planar shape using its plane coordinates.
     vec3 intersection = RayAt(ray, t);
     vec3 planar_hitpt_vector = intersection - Q;
-    float alpha = dot(w, cross(planar_hitpt_vector, v));
-    float beta = dot(w, cross(u, planar_hitpt_vector));
+    alpha = dot(w, cross(planar_hitpt_vector, v));
+    beta = dot(w, cross(u, planar_hitpt_vector));
 
     // Ray hits the 2D shape; set the rest of the hit record and return true.
     res.t = t;
@@ -393,43 +394,26 @@ bool PlaneHit(int obj_id, Ray ray, float t_min, float t_max, inout HitResult res
 
 bool QuadHit(int obj_id, Ray ray, float t_min, float t_max, inout HitResult res) {
     
-    // finding plane
-    vec3 Q = u_a[obj_id];
-    vec3 u = u_b[obj_id];
-    vec3 v = u_c[obj_id];
+    float alpha, beta;
 
-    vec3 normal = u_n[obj_id];
-    float D = u_D[obj_id];
-    vec3 w = u_w[obj_id];
-
-
-    float denom = dot(normal, ray.direction);
-
-    // No hit if the ray is parallel to the plane.
-    if (abs(denom) < 1e-8) {
+    if (!PlaneHit(obj_id, ray, t_min, t_max, res, alpha, beta)) {
         return false;
     }
 
-    // Return false if the hit point parameter t is outside the ray interval.
-    float t = (D - dot(normal, ray.origin)) / denom;
-    if (t < t_min || t > t_max) return false;
-
-    // Determine if the hit point lies within the planar shape using its plane coordinates.
-    vec3 intersection = RayAt(ray, t);
-    vec3 planar_hitpt_vector = intersection - Q;
-    float alpha = dot(w, cross(planar_hitpt_vector, v));
-    float beta = dot(w, cross(u, planar_hitpt_vector));
-
     if (alpha < 0 || alpha > 1 || beta < 0 || beta > 1) return false;
 
-    // Ray hits the 2D shape; set the rest of the hit record and return true.
-    res.t = t;
-    res.hit_pos = intersection;
-    res.mat_id = u_mat_id[obj_id];;
-    res.uv = vec2(alpha, beta);
-    SetFaceNormal(ray, normal, res);
-
     return true;
+}
+
+bool TriangleHit(int obj_id, Ray ray, float t_min, float t_max, inout HitResult res) {
+    
+    float alpha, beta;
+
+    if (!PlaneHit(obj_id, ray, t_min, t_max, res, alpha, beta)) {
+        return false;
+    }
+
+    return alpha > 0 && beta > 0 && alpha+beta < 1;
 }
 
 bool AbstractHit(int obj_id, Ray ray, float t_min, float t_max, inout HitResult res) {
@@ -441,7 +425,11 @@ bool AbstractHit(int obj_id, Ray ray, float t_min, float t_max, inout HitResult 
         return QuadHit(obj_id, ray, t_min, t_max, res);
     }
     else if (u_geometry_type[obj_id] == PLANE) {
-        return PlaneHit(obj_id, ray, t_min, t_max, res);
+        float a, b;
+        return PlaneHit(obj_id, ray, t_min, t_max, res, a, b);
+    }
+    else if (u_geometry_type[obj_id] == TRIANGLE) {
+        return TriangleHit(obj_id, ray, t_min, t_max, res);
     }
     return false;
 }
@@ -533,27 +521,34 @@ vec3 SkyColor(Ray ray) {
     if (u_sky_tex_id == SKY_BLUE) {
         vec3 unit_direction = normalize(ray.direction);
         float a = 0.5*(unit_direction.y + 1.0);
-        return (1.0-a)*vec3(1.0, 1.0, 1.0) + a*vec3(0.5, 0.7, 1.0);
+        vec3 col = (1.0-a)*vec3(1.0, 1.0, 1.0) + a*vec3(0.5, 0.7, 1.0);
+        return col / 1.5;
     }
 
     vec3 e = GetTextureColor(EquirectangularProjectionUV(ray.direction), u_sky_tex_id).rgb;
     return e*e; // tunemapping reversed?
 }
 
-/*
+
 vec3 SkyEmit(Ray ray) {
-    vec3 e = GetTextureColor(EquirectangularProjectionUV(ray.direction), 1).rgb;
+    if (u_sky_tex_id == SKY_DARK) {
+        return vec3(0.0);
+    }
+    if (u_sky_tex_id == SKY_BLUE) {
+        vec3 unit_direction = normalize(ray.direction);
+        const vec3 sun_direction = normalize(vec3(1.0, 1.0, 0.0)); // directly overhead
+
+        float alignment = dot(unit_direction, sun_direction); // cosine of angle to sun
+        float intensity = smoothstep(0.995, 1.0, alignment);    // narrow bright spot
+
+        return mix(vec3(0.3), vec3(1.0), intensity);
+    }
+
+    vec3 e = GetTextureColor(EquirectangularProjectionUV(ray.direction), u_sky_tex_id).rgb;
     return e*e; // tunemapping reversed?
-    //return vec3(0.0);
-    // vec3 unit_direction = normalize(ray.direction);
-    // const vec3 sun_direction = normalize(vec3(1.0, 1.0, 0.0)); // directly overhead
 
-    // float alignment = dot(unit_direction, sun_direction); // cosine of angle to sun
-    // float intensity = smoothstep(0.98, 1.0, alignment);    // narrow bright spot
-
-    // return mix(vec3(0.5), vec3(1.0), intensity);
 }
-*/
+
 
 vec3 RayColor(Ray ray) {
     vec3 color = vec3(0.0);
@@ -562,10 +557,9 @@ vec3 RayColor(Ray ray) {
         HitResult res;
         bool hit = HitWorld(ray, EPSILON, INFINITY, res);
         if (ionly_normals) {
-            if (hit) return vec3(1.0);
+            if (hit) return (res.normal+1.0)/2.0;
             return vec3(0.0);
         }
-        
         if (hit) {
             // scatter ray
             Ray scattered;
@@ -574,7 +568,6 @@ vec3 RayColor(Ray ray) {
                 ray = scattered;
                 color += T*EmitColor(res.mat_id, res.uv, res.hit_pos);
                 T *= attenuation;
-                //color += EmitColor(res.mat_id, res.uv, res.hit_pos);
             }
             else {
                 color += EmitColor(res.mat_id, res.uv, res.hit_pos);
@@ -582,8 +575,7 @@ vec3 RayColor(Ray ray) {
             }
         }
         else {
-            vec3 sky = SkyColor(ray);
-            return T*sky + sky;  // Faster cuz sky col = sky emit rn
+            return T*SkyColor(ray) + SkyEmit(ray);  // Faster cuz sky col = sky emit rn
             //return T*color*SkyColor(ray) + SkyEmit(ray);
 
 

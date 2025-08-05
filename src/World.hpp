@@ -15,15 +15,19 @@
 #define OBJECT_COUNT 18
 
 // Scenes
-#define SC_ROOM        0
-#define SC_DARK        1
-#define SC_CORNELL_BOX 2
+#define SC_ROOM          0
+#define SC_DARK          1
+#define SC_CORNELL_BOX   2
+#define SC_TRIANGLE_TEST 3
+
+// IF YOU ADD MORE 2D primitives don't forget to change THE LINE ~166
+// u_geometry_type[i] == PLANE || ...
 
 // Procedural sky
 #define SKY_DARK -2
 #define SKY_BLUE -1
 
-#define downscale 1.0
+#define downscale 4.0
 
 class World {
 public:
@@ -42,6 +46,8 @@ public:
         case SC_CORNELL_BOX:
             CornellBox();
             break;
+        case SC_TRIANGLE_TEST:
+            TriangleTest();
         default:
             break;
         }
@@ -86,6 +92,9 @@ public:
             break;
 
         case SC_CORNELL_BOX:
+            break;
+
+        case SC_TRIANGLE_TEST:
             break;
 
         default:
@@ -155,7 +164,7 @@ private:
             u_b[i] = objects[i].b;
             u_c[i] = objects[i].c;
 
-            if (u_geometry_type[i] == PLANE || u_geometry_type[i] == QUAD) {
+            if (u_geometry_type[i] == PLANE || u_geometry_type[i] == QUAD || u_geometry_type[i] == TRIANGLE) {
                 
                 Vector3 n = Vector3CrossProduct(u_b[i], u_c[i]);
                 Vector3 normal = Vector3Normalize(n);
@@ -251,7 +260,7 @@ private:
         Mat red   = Mat(Vector3{0.65, 0.05, 0.05}, LAMBERTIAN);
         Mat white = Mat(Vector3{0.73, 0.73, 0.73}, LAMBERTIAN);
         Mat green = Mat(Vector3{0.12, 0.45, 0.15}, LAMBERTIAN);
-        Mat light = Mat(Vector3{15, 15, 15}, DIFFUSE_LIGHT);
+        Mat light = Mat(Vector3{2, 2, 2}, DIFFUSE_LIGHT);
 
         mats[0] = red;
         mats[1] = white;
@@ -262,7 +271,7 @@ private:
         objects[1] = Hittable::Quad(Vector3{0,0,0}, Vector3{0,1,0}, Vector3{0,0,1}, 0);
 
         // light quad
-        objects[2] = Hittable::Quad(Vector3{0.6, 1, 0.5}, Vector3{-0.2,0,0}, Vector3{0,0,-0.2}, 3);
+        objects[2] = Hittable::Quad(Vector3{0.8, 1, 0.7}, Vector3{-0.6,0,0}, Vector3{0,0,-0.6}, 3);
 
         objects[3] = Hittable::Quad(Vector3{0,0,0}, Vector3{1,0,0}, Vector3{0,0,1}, 1);
         objects[4] = Hittable::Quad(Vector3{1,1,1}, Vector3{-1,0,0}, Vector3{0,0,-1}, 1);
@@ -275,6 +284,27 @@ private:
         // short box (right)
         Hittable::Box(objects, 12, Vector3{0.25, 0, 0.2}, Vector3{0.3, 0, 0}, Vector3{0, 0.3, 0}, Vector3{0, 0, 0.3}, 1);
         Hittable::RotateBox(objects, 12, Vector3{0, 1, 0}, -20);
+        sky_tex_id = SKY_DARK;
+    }
+
+    void TriangleTest() {
+        camera->updating = false;
+        camera->vfov     = 90;
+        camera->Position = Vector3{0.0, 0.0, 0};
+        camera->defocus_angle = 0;
+
+        Mat red   = Mat(Vector3{0.65, 0.05, 0.05}, LAMBERTIAN);
+        Mat white = Mat(Vector3{0.73, 0.73, 0.73}, LAMBERTIAN);
+        Mat green = Mat(Vector3{0.12, 0.45, 0.15}, LAMBERTIAN);
+        Mat light = Mat(Vector3{2, 2, 2}, DIFFUSE_LIGHT);
+
+        mats[0] = red;
+        mats[1] = white;
+        mats[2] = green;
+        mats[3] = light;
+
+        objects[0] = Hittable::Triangle(Vector3{-1.0, -1.0, 3.0}, Vector3{0.0, 2.0, 0.0}, Vector3{2.0, 0.0, 0.0}, 3);
+
         sky_tex_id = SKY_DARK;
     }
 };
