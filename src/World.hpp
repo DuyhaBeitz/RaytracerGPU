@@ -24,7 +24,7 @@
 #define SKY_DARK -2
 #define SKY_BLUE -1
 
-#define downscale 16.0
+#define downscale 1.0
 
 class World {
 public:
@@ -316,7 +316,7 @@ private:
         objects.push_back(Hittable::Sphere(Vector3{0.35, 0.5, 0.4}, 0.12, 6));
 
         Model model = LoadModel("assets/monkey.glb");
-        Hittable::Model(objects, model, 7, Vector3{0.68, 0.72, 0.5}, 0.13, Vector3{0, 1, 0}, 180+10);
+        Hittable::Model(objects, model, 7, Vector3{0.68, 0.72, 0.6}, 0.13, Vector3{0, 1, 0.1}, 180+10);
     }
 
     void TriangleTest() {
