@@ -54,7 +54,7 @@ int main() {
 }
 
 bool Init() {
-    InitWindow(500, 500, "RTX GPU");
+    InitWindow(3840, 2160, "RTX GPU");
     if (!IsWindowReady()) {
         return false;
     }

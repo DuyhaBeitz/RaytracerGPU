@@ -24,7 +24,7 @@
 #define SKY_DARK -2
 #define SKY_BLUE -1
 
-#define downscale 1.0
+#define downscale 8
 
 class World {
 public:
@@ -245,8 +245,8 @@ private:
 
         sky_tex_id = 1;
 
-        Model model = LoadModel("assets/monkey.glb");
-        Hittable::Model(objects, model, 2, Vector3{0, 0, 6}, 1, Vector3{0, 1, 0}, -90);
+        // Model model = LoadModel("assets/monkey.glb");
+        // Hittable::Model(objects, model, 2, Vector3{0, 0, 6}, 1, Vector3{0, 1, 0}, -90);
     }
 
     void Dark() {
