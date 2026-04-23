@@ -577,7 +577,7 @@ vec3 RayColor(Ray ray) {
             }
         }
         else {
-            return T*SkyColor(ray) + SkyEmit(ray);  // Faster cuz sky col = sky emit rn
+            return T* (SkyColor(ray) + SkyEmit(ray));
             //return T*color*SkyColor(ray) + SkyEmit(ray);
 
 

@@ -237,11 +237,14 @@ private:
 
         mats.push_back(Mat(YELLOW, LAMBERTIAN));
         mats.push_back(Mat(WHITE, DIELECTRIC, -1, -1, 0.0, 1/1.3));
-        mats.push_back(Mat(RED, METAL, -1, -1, 0.0, 0.0));
+        mats.push_back(Mat(WHITE, LAMBERTIAN, 0, -1, 0.0, 0.0));
+        mats.push_back(Mat(RED, METAL, -1, -1, 0.0, 0.0));        
+
 
         objects.push_back(Hittable::Sphere(Vector3{0, 0, -3}, 1, 0));
         objects.push_back(Hittable::Sphere(Vector3{0, 0, 0}, 1, 1));        
-        objects.push_back(Hittable::Sphere(Vector3{0, 0, 3}, 1, 2));        
+        objects.push_back(Hittable::Sphere(Vector3{0, 0, 3}, 1, 2));
+        objects.push_back(Hittable::Sphere(Vector3{0, 0, 6}, 1, 3));
 
         sky_tex_id = 1;
 
