@@ -1,6 +1,6 @@
 # C++ & raylib raytracer
 Uses regular shader
-## features
+## Features
 - Materials: lambertian, metal, dielectric, diffuse light
 - Materials can be textured, have emission, fuzz, refraction
 - Lowpoly models (no texturing)
